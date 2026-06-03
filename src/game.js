@@ -4,6 +4,8 @@ import { AudioManager } from './audio-manager.js';
 import { StatsManager } from './stats-manager.js';
 import { EffectManager } from './effect-manager.js';
 import { Renderer } from './renderer.js';
+import { WeaponManager } from './weapon-manager.js';
+import { WEAPONS, WEAPON_LIST, DEFAULT_WEAPON } from './weapons.js';
 import { GridshotMode } from './modes/gridshot.js';
 import { TrackingMode } from './modes/tracking.js';
 import { ReflexMode } from './modes/reflex.js';
@@ -39,6 +41,7 @@ export class Game {
     this._fpsTime = 0;
     this._fps = 0;
     this._fpsDisplay = null;
+    this.weapon = new WeaponManager(this);
     // Session history
     this._sessionHistory = [];
   }
@@ -150,6 +153,9 @@ export class Game {
       case 'strafetrack': this.mode = new StrafetrackMode(this); break;
     }
 
+    // Reset weapon for new round
+    this.weapon.selectWeapon(this.weapon.currentId);
+
     this.mode.start();
     this.state = 'playing'; this._updateCursor();
     document.getElementById('hud').classList.add('visible');
@@ -180,6 +186,8 @@ export class Game {
       }
     }
 
+    this.weapon.update(dt);
+
     this.mode.update(dt);
     this.effects.update(dt);
     this._render();
@@ -208,8 +216,21 @@ export class Game {
 
     if (this.state === 'playing' || this.state === 'paused') {
       const ch = this.stats.getSettings().crosshair;
-      Renderer.drawCrosshair(ctx, this.mouseX, this.mouseY, ch);
-      Renderer.drawWeaponSilhouette(ctx, w, h);
+      const wm = this.weapon;
+      // Crosshair with recoil offset (gun moves up during spray)
+      const cx = this.mouseX;
+      const cy = this.mouseY;
+      // Draw crosshair bloom based on current spread
+      const bloom = wm.getCurrentSpread() * 3;
+      // Pass bloom info to renderer through a modified crosshair config
+      const chWithBloom = { ...ch, bloom };
+      Renderer.drawCrosshair(ctx, cx, cy, chWithBloom);
+      if (wm.recoilIndex > 1) {
+        const rx = cx + wm.recoilSmooth.x * 1.5;
+        const ry = cy + (wm.recoilSmooth.y) * 1.5;
+        Renderer.drawRecoilIndicator(ctx, rx, ry, wm.getCurrentSpread());
+      }
+      Renderer.drawWeaponSilhouette(ctx, w, h, wm.currentId);
     }
   }
 
@@ -236,6 +257,19 @@ export class Game {
 
     document.getElementById('hudHeadshots').textContent = 'HEADSHOTS: ' + (this.mode.headshots || 0);
     document.getElementById('hudStreak').textContent = 'STREAK: ' + (this.mode.streak || 0);
+
+    // Weapon HUD
+    const wp = this.weapon;
+    const wpNameEl = document.getElementById('hudWeaponName');
+    const wpAmmoEl = document.getElementById('hudWeaponAmmo');
+    if (wpNameEl) wpNameEl.textContent = wp.weapon.name.toUpperCase();
+    if (wpAmmoEl) {
+      wpAmmoEl.textContent = wp.ammo + ' / ' + wp.weapon.magSize;
+      wpAmmoEl.classList.toggle('low-ammo', wp.ammo <= wp.weapon.magSize * 0.25);
+    }
+    // Reload indicator
+    const reloadEl = document.getElementById('hudReloading');
+    if (reloadEl) reloadEl.classList.toggle('visible', wp.reloading);
   }
 
   _endRound() {
@@ -324,11 +358,30 @@ export class Game {
       this._unlockAudio();
       const pos = this._getPos(e);
       if (this.state === 'playing' && this.mode) {
-        const r = this.mode.onMouseDown(pos.x, pos.y);
+        // Fire weapon (checks ammo, fire rate, reload)
+        const shot = this.weapon.fire();
+        if (!shot) {
+          // Weapon blocked — play empty click if ammo empty, else ignore (fire rate cap)
+          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+            this.audio.play('empty');
+          }
+          return;
+        }
+        const aimX = pos.x + shot.recoilOffset.x * 1.2;
+        const aimY = pos.y + (shot.recoilOffset.y) * 1.2;
+        const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
           if (r.headshot) this.audio.play('headshot');
           else if (r.hit) this.audio.play('hit');
           else this.audio.play('miss');
+          // Weapon-specific audio overlay
+          this.audio.playWeaponFire(this.weapon.currentId);
+          // Muzzle flash
+          this.effects.addMuzzleFlash(pos.x, pos.y);
+          // Auto-reload when empty
+          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+            this.weapon.reload();
+          }
         }
       }
     });
@@ -348,11 +401,25 @@ export class Game {
       this.mouseX = pos.x;
       this.mouseY = pos.y;
       if (this.state === 'playing' && this.mode) {
-        const r = this.mode.onMouseDown(pos.x, pos.y);
+        const shot = this.weapon.fire();
+        if (!shot) {
+          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+            this.audio.play('empty');
+          }
+          return;
+        }
+        const aimX = pos.x + shot.recoilOffset.x * 1.2;
+        const aimY = pos.y + (shot.recoilOffset.y) * 1.2;
+        const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
           if (r.headshot) this.audio.play('headshot');
           else if (r.hit) this.audio.play('hit');
           else this.audio.play('miss');
+          this.audio.playWeaponFire(this.weapon.currentId);
+          this.effects.addMuzzleFlash(pos.x, pos.y);
+          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+            this.weapon.reload();
+          }
         }
       }
     }, { passive: false });
@@ -394,8 +461,40 @@ export class Game {
         case kb.multitarget: if (this.state === 'menu') { this.startGame('multitarget'); return; } break;
         case '9':
         case kb.strafetrack: if (this.state === 'menu') { this.startGame('strafetrack'); return; } break;
-      }
+    }
 
+    // Weapon controls (playing state only)
+    if (this.state === 'playing' || this.state === 'paused') {
+      // Weapon switching
+      const weaponKeys = ['vandal', 'phantom', 'sheriff', 'ghost', 'spectre', 'operator', 'judge', 'guardian'];
+      const numIdx = parseInt(key) - 1;
+      if (numIdx >= 0 && numIdx < weaponKeys.length) {
+        this.weapon.selectWeapon(weaponKeys[numIdx]);
+        return;
+      }
+      if (key.toLowerCase() === 'q') {
+        const idx = weaponKeys.indexOf(this.weapon.currentId);
+        const prev = (idx - 1 + weaponKeys.length) % weaponKeys.length;
+        this.weapon.selectWeapon(weaponKeys[prev]);
+        return;
+      }
+      if (key.toLowerCase() === 'e') {
+        const idx = weaponKeys.indexOf(this.weapon.currentId);
+        const next = (idx + 1) % weaponKeys.length;
+        this.weapon.selectWeapon(weaponKeys[next]);
+        return;
+      }
+      // Reload
+      if (key.toLowerCase() === 'r' && this.state === 'playing') {
+        this.weapon.reload();
+        return;
+      }
+      // Movement (affects accuracy)
+      if (key === 'w' || key === 'W') { this.weapon.keyDown(key); return; }
+      if (key === 's' || key === 'S') { this.weapon.keyDown(key); return; }
+      if (key === 'a' || key === 'A') { this.weapon.keyDown(key); return; }
+      if (key === 'd' || key === 'D') { this.weapon.keyDown(key); return; }
+    }
       if (key === kb.play || key === 'Enter') {
         if (this.state === 'menu') { this.startGame('gridshot'); return; }
       }
@@ -417,7 +516,14 @@ export class Game {
       }
     });
 
-    let resizeTimeout;
+    // Keyup: release movement keys via weapon keyUp
+    document.addEventListener('keyup', (e) => {
+      const key = e.key;
+      if (key === 'w' || key === 'W' || key === 's' || key === 'S' ||
+          key === 'a' || key === 'A' || key === 'd' || key === 'D') {
+        this.weapon.keyUp(key);
+      }
+    });
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
@@ -485,6 +591,8 @@ export class Game {
      SETTINGS UI
      ========================================== */
   _initSettingsUI() {
+    if (this._settingsReady) return;
+    this._settingsReady = true;
     const s = this.stats.getSettings();
     const ch = s.crosshair;
     // Keybind display
