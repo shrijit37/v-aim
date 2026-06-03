@@ -81,6 +81,8 @@ export class PeekPracticeMode {
     this.target.y = y;
     this.target.edge = edge;
     this.target.alive = true;
+    this.target.hasReached = false;
+
     this.target.peeking = true;
     this.target.peekProgress = 0;
     this.target.slideOut = false;
@@ -100,9 +102,9 @@ export class PeekPracticeMode {
     const speed = this.target.speed * 200 * dt;
     const w = this.game.width;
     const h = this.game.height;
-    const peekDist = 80 + Math.random() * 40; // how far they peek in
+    const peekDist = 80 + Math.random() * 40;
 
-    if (!this.target.slideOut) {
+    if (!this.target.slideOut && !this.target.hasReached) {
       // Sliding in
       let reached = false;
       switch (this.target.edge) {
@@ -126,8 +128,8 @@ export class PeekPracticeMode {
 
       if (reached) {
         // Paused at peek - start timer
+        this.target.hasReached = true;
         this.target.peekTimer = this.target.peekDuration;
-        this.target.slideOut = false;
       }
     }
 
