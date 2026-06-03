@@ -1,0 +1,2936 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>V-AIM — Valorant Aim Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================
+   CSS VARIABLES
+   ============================================ */
+:root {
+  --red: #FF4655;
+  --red-dim: rgba(255, 70, 85, 0.15);
+  --red-bright: #ff6b77;
+  --bg: #0f0f0f;
+  --bg2: #1a1a1a;
+  --bg3: #252525;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface2: rgba(255, 255, 255, 0.07);
+  --text: #ece8e1;
+  --text-dim: #9e9a94;
+  --text-muted: #5a5753;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.05);
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition: 0.2s var(--ease);
+  --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  --red-glow: 0 0 40px rgba(255, 70, 85, 0.15);
+}
+
+[data-theme="very-dark"] {
+  --bg: #060606;
+  --bg2: #0d0d0d;
+  --bg3: #161616;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface2: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-light: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="red-accent"] {
+  --bg: #0d0808;
+  --bg2: #1a0e0e;
+  --bg3: #251515;
+  --surface: rgba(255, 70, 85, 0.06);
+  --surface2: rgba(255, 70, 85, 0.1);
+  --border: rgba(255, 70, 85, 0.15);
+  --border-light: rgba(255, 70, 85, 0.08);
+  --red-glow: 0 0 60px rgba(255, 70, 85, 0.2);
+}
+
+/* ============================================
+   RESET & BASE
+   ============================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+/* ============================================
+   APP LAYOUT
+   ============================================ */
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#gameCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  touch-action: none;
+}
+
+#ui-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#ui-overlay > * {
+  pointer-events: auto;
+}
+
+/* ============================================
+   MENU SCREENS
+   ============================================ */
+.menu-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s var(--ease), visibility 0.3s var(--ease);
+  padding: 24px;
+}
+
+.menu-screen.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ============================================
+   MAIN MENU
+   ============================================ */
+.logo {
+  font-family: var(--font);
+  font-weight: 900;
+  font-size: 96px;
+  letter-spacing: -2px;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.logo .v { color: var(--text); }
+.logo .dash { color: var(--red); }
+.logo .aim { color: var(--red); }
+
+.logo-subtitle {
+  font-size: 13px;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 48px;
+  font-weight: 300;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+/* ============================================
+   MENU BUTTON
+   ============================================ */
+.menu-btn {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 14px 48px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--transition), transform 0.15s var(--ease);
+  min-width: 280px;
+  text-align: center;
+}
+
+.menu-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--red);
+  transform: translateX(-100%);
+  transition: transform 0.35s var(--ease);
+  z-index: 0;
+}
+
+.menu-btn:hover {
+  border-color: var(--red);
+  transform: translateY(-1px);
+}
+
+.menu-btn:hover::before {
+  transform: translateX(0);
+}
+
+.menu-btn span {
+  position: relative;
+  z-index: 1;
+  mix-blend-mode: normal;
+}
+
+.menu-btn:hover span {
+  color: #fff;
+}
+
+.menu-btn:active {
+  transform: translateY(0px) scale(0.99);
+}
+
+.menu-btn .key-hint {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--surface);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  vertical-align: middle;
+}
+
+.menu-footer {
+  position: absolute;
+  bottom: 32px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 300;
+}
+
+.menu-footer span { color: var(--red); }
+
+/* ============================================
+   MODE SELECT
+   ============================================ */
+#menu-modes {
+  justify-content: flex-start;
+  padding-top: 60px;
+}
+
+.screen-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  color: var(--text);
+}
+
+.screen-title .highlight { color: var(--red); }
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 640px;
+  width: 100%;
+}
+
+.mode-card {
+  position: relative;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 28px 24px;
+  cursor: pointer;
+  transition: all var(--transition);
+  overflow: hidden;
+}
+
+.mode-card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--red);
+  transform: scaleY(0);
+  transition: transform var(--transition);
+  transform-origin: top;
+}
+
+.mode-card:hover {
+  border-color: var(--red);
+  transform: translateY(-2px);
+  background: var(--surface2);
+}
+
+.mode-card:hover::after {
+  transform: scaleY(1);
+}
+
+.mode-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.mode-card p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  font-weight: 300;
+  margin-bottom: 12px;
+}
+
+.mode-card .mode-key {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--surface);
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+}
+
+.back-btn {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 8px 20px;
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.back-btn:hover {
+  border-color: var(--red);
+  color: var(--text);
+}
+
+/* ============================================
+   SETTINGS
+   ============================================ */
+#menu-settings {
+  justify-content: flex-start;
+  padding-top: 60px;
+  overflow-y: auto;
+}
+
+.settings-panel {
+  max-width: 480px;
+  width: 100%;
+  padding-bottom: 60px;
+}
+
+.setting-group {
+  margin-bottom: 28px;
+}
+
+.setting-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.setting-row .label {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.setting-row .value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Range Slider */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 160px;
+  height: 3px;
+  background: var(--bg3);
+  border: none;
+  outline: none;
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: var(--red);
+  transform: scale(1.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  cursor: pointer;
+  border: none;
+}
+
+input[type="range"]:focus::-webkit-slider-thumb,
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--red-dim);
+}
+
+/* Toggle Switch */
+.toggle {
+  display: inline-flex;
+  width: 44px;
+  height: 24px;
+  background: var(--bg3);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--transition);
+  border: none;
+  padding: 0;
+}
+
+.toggle.active { background: var(--red); }
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  top: 3px;
+  left: 3px;
+  transition: transform var(--transition);
+}
+
+.toggle.active::after { transform: translateX(20px); }
+
+/* Option Buttons */
+.option-group {
+  display: flex;
+  gap: 6px;
+}
+
+.setting-option {
+  padding: 6px 16px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.setting-option:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.setting-option.active {
+  border-color: var(--red);
+  background: var(--red-dim);
+  color: var(--text);
+}
+
+/* Crosshair Editor */
+.crosshair-preview-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+#crosshairPreview {
+  width: 200px;
+  height: 120px;
+  border-radius: 2px;
+}
+
+.color-swatches {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.color-swatch:hover { transform: scale(1.1); }
+
+.color-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 12px rgba(255,255,255,0.2);
+}
+
+.reset-crosshair {
+  margin-top: 10px;
+  padding: 6px 16px;
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.reset-crosshair:hover {
+  border-color: var(--red);
+  color: var(--text);
+}
+
+/* ============================================
+   STATISTICS
+   ============================================ */
+#menu-stats {
+  justify-content: flex-start;
+  padding-top: 60px;
+  overflow-y: auto;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 640px;
+  width: 100%;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 20px;
+}
+
+.stat-card h3 {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 12px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.stat-row .stat-label {
+  color: var(--text-dim);
+  font-weight: 300;
+}
+
+.stat-row .stat-value {
+  font-family: var(--font-mono);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.reset-stats-btn {
+  padding: 10px 24px;
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.reset-stats-btn:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ============================================
+   SCORE SCREEN
+   ============================================ */
+#menu-score {
+  text-align: center;
+}
+
+.score-title {
+  font-size: 12px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.score-value {
+  font-family: var(--font-mono);
+  font-size: 80px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.score-highlight {
+  font-size: 14px;
+  color: var(--red);
+  margin-bottom: 32px;
+  letter-spacing: 2px;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.score-highlight.show { opacity: 1; }
+
+.score-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  max-width: 360px;
+  width: 100%;
+  margin-bottom: 32px;
+}
+
+.score-detail-item {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  padding: 14px;
+}
+
+.score-detail-item .detail-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.score-detail-item .detail-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.score-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* ============================================
+   HUD
+   ============================================ */
+#hud {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+#hud.visible { opacity: 1; }
+
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  padding: 20px 24px;
+}
+
+.hud-mode {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.hud-mode .hud-mode-sub {
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  display: block;
+  margin-top: 2px;
+}
+
+.hud-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.hud-timer {
+  font-family: var(--font-mono);
+  font-size: 48px;
+  font-weight: 300;
+  color: var(--text);
+  letter-spacing: 4px;
+  transition: color 0.3s;
+}
+
+.hud-timer.warning {
+  color: var(--red);
+  animation: warningPulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes warningPulse {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0.6; transform: scale(1.05); }
+}
+
+.hud-right {
+  text-align: right;
+}
+
+.hud-score {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+
+.hud-accuracy {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-weight: 300;
+  letter-spacing: 1px;
+}
+
+.hud-bottom {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+}
+
+.hud-streak {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.hud-headshots {
+  color: var(--text-dim);
+  font-weight: 300;
+}
+
+/* ============================================
+   PAUSE OVERLAY
+   ============================================ */
+#pause-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s var(--ease), visibility 0.2s var(--ease);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+#pause-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+#pause-overlay h2 {
+  font-size: 14px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* ============================================
+   COUNTDOWN OVERLAY
+   ============================================ */
+#countdown-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s;
+}
+
+#countdown-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.countdown-number {
+  font-family: var(--font-mono);
+  font-size: 160px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -8px;
+  opacity: 0;
+  animation: countPop 0.5s var(--ease) forwards;
+}
+
+.countdown-number.go {
+  color: var(--red);
+}
+
+@keyframes countPop {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.menu-screen.active > * {
+  animation: slideUp 0.4s var(--ease) forwards;
+}
+
+.menu-screen.active > *:nth-child(1) { animation-delay: 0s; }
+.menu-screen.active > *:nth-child(2) { animation-delay: 0.05s; }
+.menu-screen.active > *:nth-child(3) { animation-delay: 0.1s; }
+.menu-screen.active > *:nth-child(4) { animation-delay: 0.15s; }
+.menu-screen.active > *:nth-child(5) { animation-delay: 0.2s; }
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 640px) {
+  .logo { font-size: 56px; }
+  .logo-subtitle { font-size: 11px; letter-spacing: 4px; margin-bottom: 32px; }
+  .menu-btn { min-width: 240px; padding: 12px 32px; font-size: 12px; }
+  .mode-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .mode-card { padding: 20px; }
+  .mode-card h3 { font-size: 16px; }
+  .stats-grid { grid-template-columns: 1fr; }
+  .score-value { font-size: 56px; }
+  .hud-timer { font-size: 32px; }
+  .hud-score { font-size: 22px; }
+  .hud-top { padding: 14px 16px; }
+  .menu-screen { padding: 16px; }
+  #menu-modes { padding-top: 72px; }
+  #menu-settings { padding-top: 72px; }
+  #menu-stats { padding-top: 72px; }
+  .back-btn { top: 12px; left: 12px; padding: 6px 14px; font-size: 10px; }
+  .settings-panel { max-width: 100%; }
+  .score-details { grid-template-columns: 1fr 1fr; }
+  .score-actions { flex-direction: column; align-items: center; }
+}
+
+@media (max-width: 400px) {
+  .logo { font-size: 42px; }
+  .menu-btn { min-width: 200px; padding: 10px 24px; font-size: 11px; }
+  .hud-timer { font-size: 26px; }
+  .hud-score { font-size: 18px; }
+  .hud-top { padding: 10px 12px; flex-wrap: wrap; gap: 4px; }
+  .hud-mode { font-size: 11px; }
+  .hud-center { top: 40%; }
+  .score-value { font-size: 42px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- CANVAS -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- UI OVERLAY -->
+  <div id="ui-overlay">
+
+    <!-- MAIN MENU -->
+    <div class="menu-screen active" id="menu-main">
+      <div class="logo">
+        <span class="v">V</span><span class="dash">—</span><span class="aim">AIM</span>
+      </div>
+      <div class="logo-subtitle">Precision Training</div>
+      <div class="menu-buttons">
+        <button class="menu-btn" data-action="show-modes"><span>PLAY</span><span class="key-hint">ENTER</span></button>
+        <button class="menu-btn" data-action="show-stats"><span>STATISTICS</span></button>
+        <button class="menu-btn" data-action="show-settings"><span>SETTINGS</span></button>
+      </div>
+      <div class="menu-footer">INSPIRED BY <span>VALORANT</span> &nbsp;·&nbsp; v1.0</div>
+    </div>
+
+    <!-- MODE SELECT -->
+    <div class="menu-screen" id="menu-modes">
+      <button class="back-btn" data-action="show-main">← BACK</button>
+      <div class="screen-title">SELECT <span class="highlight">MODE</span></div>
+      <div class="mode-grid">
+        <div class="mode-card" data-mode="gridshot">
+          <h3>Gridshot</h3>
+          <p>Eliminate static targets as fast as possible. Test your flick accuracy and speed.</p>
+          <span class="mode-key">1</span>
+        </div>
+        <div class="mode-card" data-mode="tracking">
+          <h3>Tracking</h3>
+          <p>Track moving targets with precision. Smooth mouse control and steady aim.</p>
+          <span class="mode-key">2</span>
+        </div>
+        <div class="mode-card" data-mode="reflex">
+          <h3>Reflex</h3>
+          <p>React before targets vanish. Train your reaction time and snap accuracy.</p>
+          <span class="mode-key">3</span>
+        </div>
+        <div class="mode-card" data-mode="deathmatch">
+          <h3>Deathmatch</h3>
+          <p>One target at a time. Kill speed scales difficulty. Feel the pressure.</p>
+          <span class="mode-key">4</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="menu-screen" id="menu-settings">
+      <button class="back-btn" data-action="show-main">← BACK</button>
+      <div class="screen-title"><span class="highlight">SETTINGS</span></div>
+      <div class="settings-panel">
+
+        <!-- Gameplay -->
+        <div class="setting-group">
+          <div class="setting-label">Gameplay</div>
+          <div class="setting-row">
+            <span class="label">Sensitivity</span>
+            <span class="value" id="sensValue">1.0</span>
+          </div>
+          <div class="setting-row">
+            <input type="range" id="sensitivity" min="0.1" max="3.0" step="0.05" value="1.0">
+          </div>
+          <div class="setting-row">
+            <span class="label">Target Size</span>
+          </div>
+          <div class="setting-row">
+            <div class="option-group" id="targetSize">
+              <button class="setting-option" data-value="small">Small</button>
+              <button class="setting-option active" data-value="medium">Medium</button>
+              <button class="setting-option" data-value="large">Large</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="label">Round Duration</span>
+          </div>
+          <div class="setting-row">
+            <div class="option-group" id="roundTimer">
+              <button class="setting-option" data-value="30">30s</button>
+              <button class="setting-option active" data-value="60">60s</button>
+              <button class="setting-option" data-value="120">120s</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audio -->
+        <div class="setting-group">
+          <div class="setting-label">Audio</div>
+          <div class="setting-row">
+            <span class="label">Sound Effects</span>
+            <button class="toggle active" id="soundToggle"></button>
+          </div>
+        </div>
+
+        <!-- Theme -->
+        <div class="setting-group">
+          <div class="setting-label">Theme</div>
+          <div class="setting-row">
+            <div class="option-group" id="themeSelect">
+              <button class="setting-option active" data-value="dark">Dark</button>
+              <button class="setting-option" data-value="very-dark">Very Dark</button>
+              <button class="setting-option" data-value="red-accent">Red Accent</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Crosshair -->
+        <div class="setting-group">
+          <div class="setting-label">Crosshair</div>
+          <div class="crosshair-preview-wrap">
+            <canvas id="crosshairPreview" width="200" height="120"></canvas>
+          </div>
+          <div class="setting-row">
+            <span class="label">Size</span>
+            <span class="value" id="chSizeValue">5</span>
+          </div>
+          <div class="setting-row">
+            <input type="range" id="chSize" min="1" max="10" step="1" value="5">
+          </div>
+          <div class="setting-row">
+            <span class="label">Gap</span>
+            <span class="value" id="chGapValue">3</span>
+          </div>
+          <div class="setting-row">
+            <input type="range" id="chGap" min="0" max="10" step="1" value="3">
+          </div>
+          <div class="setting-row">
+            <span class="label">Thickness</span>
+            <span class="value" id="chThickValue">2</span>
+          </div>
+          <div class="setting-row">
+            <input type="range" id="chThickness" min="1" max="6" step="1" value="2">
+          </div>
+          <div class="setting-row">
+            <span class="label">Outline</span>
+            <button class="toggle active" id="chOutline"></button>
+          </div>
+          <div class="setting-row">
+            <span class="label">Center Dot</span>
+            <button class="toggle" id="chDot"></button>
+          </div>
+          <div class="setting-row">
+            <span class="label">Color</span>
+          </div>
+          <div class="color-swatches" id="chColors">
+            <button class="color-swatch active" data-color="#00FF00" style="background:#00FF00" title="Green"></button>
+            <button class="color-swatch" data-color="#FF0000" style="background:#FF0000" title="Red"></button>
+            <button class="color-swatch" data-color="#00FFFF" style="background:#00FFFF" title="Cyan"></button>
+            <button class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF" title="White"></button>
+            <button class="color-swatch" data-color="#FF00FF" style="background:#FF00FF" title="Magenta"></button>
+            <button class="color-swatch" data-color="#FFFF00" style="background:#FFFF00" title="Yellow"></button>
+          </div>
+          <button class="reset-crosshair" id="resetCrosshair">Reset Crosshair</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- STATISTICS -->
+    <div class="menu-screen" id="menu-stats">
+      <button class="back-btn" data-action="show-main">← BACK</button>
+      <div class="screen-title"><span class="highlight">STATISTICS</span></div>
+      <div class="stats-grid" id="statsGrid"></div>
+      <button class="reset-stats-btn" id="resetStats">Reset All Statistics</button>
+    </div>
+
+    <!-- SCORE SCREEN -->
+    <div class="menu-screen" id="menu-score">
+      <div class="score-title">ROUND COMPLETE</div>
+      <div class="score-value" id="finalScore">0</div>
+      <div class="score-highlight" id="highScoreHighlight">★ NEW HIGH SCORE</div>
+      <div class="score-details" id="scoreDetails"></div>
+      <div class="score-actions">
+        <button class="menu-btn" id="playAgainBtn"><span>PLAY AGAIN</span></button>
+        <button class="menu-btn" data-action="show-main"><span>MENU</span></button>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-top">
+        <div class="hud-mode">
+          <span id="hudModeName">GRIDSHOT</span>
+          <span class="hud-mode-sub">R - Restart · ESC - Pause</span>
+        </div>
+        <div class="hud-right">
+          <div class="hud-score" id="hudScore">0</div>
+          <div class="hud-accuracy" id="hudAccuracy">100%</div>
+        </div>
+      </div>
+      <div class="hud-center">
+        <div class="hud-timer" id="hudTimer">0:00</div>
+      </div>
+      <div class="hud-bottom">
+        <span class="hud-headshots" id="hudHeadshots">HEADSHOTS: 0</span>
+        <span class="hud-streak" id="hudStreak">STREAK: 0</span>
+      </div>
+    </div>
+
+    <!-- PAUSE OVERLAY -->
+    <div id="pause-overlay">
+      <h2>PAUSED</h2>
+      <button class="menu-btn" id="resumeBtn"><span>RESUME</span><span class="key-hint">ESC</span></button>
+      <button class="menu-btn" id="restartBtn"><span>RESTART</span><span class="key-hint">R</span></button>
+      <button class="menu-btn" data-action="show-main"><span>QUIT</span></button>
+    </div>
+
+    <!-- COUNTDOWN OVERLAY -->
+    <div id="countdown-overlay">
+      <div class="countdown-number" id="countdownDisplay">3</div>
+    </div>
+
+  </div><!-- /ui-overlay -->
+</div><!-- /app -->
+
+<script>
+'use strict';
+
+/* ============================================
+   AUDIO MANAGER
+   ============================================ */
+class AudioManager {
+  constructor() {
+    this.ctx = null;
+    this.master = null;
+    this._enabled = true;
+  }
+
+  _init() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.3;
+    this.master.connect(this.ctx.destination);
+  }
+
+  setEnabled(v) {
+    this._enabled = v;
+    if (v && this.master) this.master.gain.value = 0.3;
+    else if (this.master) this.master.gain.value = 0;
+  }
+
+  _noise(duration) {
+    const sr = this.ctx.sampleRate;
+    const len = Math.floor(sr * duration);
+    const buf = this.ctx.createBuffer(1, len, sr);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  play(name) {
+    if (!this._enabled) return;
+    this._init();
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    switch (name) {
+      case 'gunshot': {
+        const src = ctx.createBufferSource();
+        src.buffer = this._noise(0.08);
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 3000;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.3, now + 0.003);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        src.connect(lp).connect(g).connect(this.master);
+        src.start(now);
+        src.stop(now + 0.08);
+        break;
+      }
+      case 'headshot': {
+        [1600, 2400, 3200].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0, now + i * 0.02);
+          g.gain.linearRampToValueAtTime(0.15, now + i * 0.02 + 0.005);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc.connect(g).connect(this.master);
+          osc.start(now + i * 0.02);
+          osc.stop(now + 0.12);
+        });
+        const ns = ctx.createBufferSource();
+        ns.buffer = this._noise(0.08);
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 5000;
+        const ng = ctx.createGain();
+        ng.gain.setValueAtTime(0, now + 0.01);
+        ng.gain.linearRampToValueAtTime(0.08, now + 0.02);
+        ng.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        ns.connect(hp).connect(ng).connect(this.master);
+        ns.start(now + 0.01);
+        ns.stop(now + 0.09);
+        break;
+      }
+      case 'hit': {
+        const ns = ctx.createBufferSource();
+        ns.buffer = this._noise(0.02);
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 4000;
+        bp.Q.value = 2;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.12, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        ns.connect(bp).connect(g).connect(this.master);
+        ns.start(now);
+        ns.stop(now + 0.02);
+        break;
+      }
+      case 'kill': {
+        [900, 600].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.15, now + i * 0.1);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.15);
+          osc.connect(g).connect(this.master);
+          osc.start(now + i * 0.1);
+          osc.stop(now + i * 0.1 + 0.15);
+        });
+        break;
+      }
+      case 'miss': {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = 120;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.1, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(g).connect(this.master);
+        osc.start(now);
+        osc.stop(now + 0.08);
+        break;
+      }
+      case 'menuClick': {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.08);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.08, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(g).connect(this.master);
+        osc.start(now);
+        osc.stop(now + 0.08);
+        break;
+      }
+      case 'countdown': {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = 600;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.12, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(g).connect(this.master);
+        osc.start(now);
+        osc.stop(now + 0.15);
+        break;
+      }
+      case 'go': {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = 1000;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.2, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.connect(g).connect(this.master);
+        osc.start(now);
+        osc.stop(now + 0.25);
+        break;
+      }
+    }
+  }
+}
+
+/* ============================================
+   STATS MANAGER
+   ============================================ */
+class StatsManager {
+  constructor() {
+    this.data = this._load();
+  }
+
+  _defaults() {
+    return {
+      settings: {
+        sensitivity: 1.0,
+        targetSize: 'medium',
+        timer: 60,
+        theme: 'dark',
+        soundEnabled: true,
+        crosshair: {
+          color: '#00FF00',
+          size: 5,
+          thickness: 2,
+          gap: 3,
+          dot: false,
+          outline: true
+        }
+      },
+      stats: {
+        gridshot: { highScore: 0, totalHits: 0, totalShots: 0, headshots: 0, sessions: 0, maxStreak: 0, reactionTimes: [] },
+        tracking: { highScore: 0, totalHits: 0, totalShots: 0, headshots: 0, sessions: 0, maxStreak: 0, reactionTimes: [] },
+        reflex: { highScore: 0, totalHits: 0, totalShots: 0, headshots: 0, sessions: 0, maxStreak: 0, reactionTimes: [] },
+        deathmatch: { highScore: 0, totalHits: 0, totalShots: 0, headshots: 0, sessions: 0, maxStreak: 0, reactionTimes: [] }
+      }
+    };
+  }
+
+  _load() {
+    try {
+      const raw = localStorage.getItem('vaim_data');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return this._mergeDefaults(parsed);
+      }
+    } catch (e) { /* ignore */ }
+    return this._defaults();
+  }
+
+  _mergeDefaults(data) {
+    const defs = this._defaults();
+    if (!data.settings) data.settings = defs.settings;
+    else {
+      Object.keys(defs.settings).forEach(k => {
+        if (typeof defs.settings[k] === 'object' && defs.settings[k] !== null) {
+          if (!data.settings[k]) data.settings[k] = defs.settings[k];
+          else Object.keys(defs.settings[k]).forEach(sk => {
+            if (data.settings[k][sk] === undefined) data.settings[k][sk] = defs.settings[k][sk];
+          });
+        } else if (data.settings[k] === undefined) data.settings[k] = defs.settings[k];
+      });
+    }
+    if (!data.stats) data.stats = defs.stats;
+    else {
+      Object.keys(defs.stats).forEach(m => {
+        if (!data.stats[m]) data.stats[m] = defs.stats[m];
+        else {
+          Object.keys(defs.stats[m]).forEach(k => {
+            if (data.stats[m][k] === undefined) data.stats[m][k] = defs.stats[m][k];
+          });
+        }
+      });
+    }
+    return data;
+  }
+
+  save() { localStorage.setItem('vaim_data', JSON.stringify(this.data)); }
+
+  getStats(mode) { return this.data.stats[mode] || this.data.stats.gridshot; }
+
+  recordGame(mode, score, hits, shots, headshots, streak, reactionTimes) {
+    const s = this.getStats(mode);
+    s.totalHits += hits;
+    s.totalShots += shots;
+    s.headshots += headshots;
+    s.sessions++;
+    if (streak > s.maxStreak) s.maxStreak = streak;
+    if (score > s.highScore) s.highScore = score;
+    if (reactionTimes && reactionTimes.length) {
+      s.reactionTimes.push(...reactionTimes);
+      if (s.reactionTimes.length > 1000) s.reactionTimes = s.reactionTimes.slice(-1000);
+    }
+    this.save();
+    return score >= s.highScore && score > 0;
+  }
+
+  resetStats() {
+    const s = this._defaults().stats;
+    Object.keys(s).forEach(k => {
+      this.data.stats[k] = s[k];
+    });
+    this.save();
+  }
+
+  getSettings() { return this.data.settings; }
+
+  updateSetting(path, value) {
+    const parts = path.split('.');
+    let obj = this.data.settings;
+    for (let i = 0; i < parts.length - 1; i++) {
+      obj = obj[parts[i]];
+    }
+    obj[parts[parts.length - 1]] = value;
+    this.save();
+  }
+
+  resetCrosshair() {
+    const defs = this._defaults().settings.crosshair;
+    const ch = this.data.settings.crosshair;
+    Object.keys(defs).forEach(k => { ch[k] = defs[k]; });
+    this.save();
+  }
+}
+
+/* ============================================
+   EFFECT MANAGER
+   ============================================ */
+class EffectManager {
+  constructor() {
+    this.hitMarkers = [];
+    this.damageNumbers = [];
+    this.particles = [];
+    this.sparks = [];
+  }
+
+  addHitMarker(x, y) {
+    this.hitMarkers.push({ x, y, time: 0, duration: 0.4 });
+  }
+
+  addDamageNumber(x, y, value, isHeadshot) {
+    this.damageNumbers.push({
+      x, y, value, isHeadshot,
+      time: 0, duration: 0.8,
+      offsetX: (Math.random() - 0.5) * 20,
+      startY: y
+    });
+  }
+
+  addKillBurst(x, y) {
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8 + (Math.random() - 0.5) * 0.5;
+      const speed = 80 + Math.random() * 120;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0,
+        maxLife: 0.5 + Math.random() * 0.3,
+        color: Math.random() > 0.5 ? '#FF4655' : '#ff8a92',
+        size: 3 + Math.random() * 3
+      });
+    }
+  }
+
+  addSparks(x, y, count) {
+    for (let i = 0; i < (count || 4); i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 30 + Math.random() * 60;
+      this.sparks.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0,
+        maxLife: 0.3 + Math.random() * 0.2,
+        size: 1.5 + Math.random() * 1.5
+      });
+    }
+  }
+
+  update(dt) {
+    for (let i = this.hitMarkers.length - 1; i >= 0; i--) {
+      this.hitMarkers[i].time += dt;
+      if (this.hitMarkers[i].time >= this.hitMarkers[i].duration) {
+        this.hitMarkers.splice(i, 1);
+      }
+    }
+    for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
+      this.damageNumbers[i].time += dt;
+      if (this.damageNumbers[i].time >= this.damageNumbers[i].duration) {
+        this.damageNumbers.splice(i, 1);
+      }
+    }
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { this.particles.splice(i, 1); continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 300 * dt;
+    }
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const s = this.sparks[i];
+      s.life += dt;
+      if (s.life >= s.maxLife) { this.sparks.splice(i, 1); continue; }
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+    }
+  }
+
+  render(ctx) {
+    // Hit markers
+    for (const hm of this.hitMarkers) {
+      const progress = hm.time / hm.duration;
+      const alpha = 1 - progress;
+      const scale = 0.5 + progress * 0.5;
+      ctx.save();
+      ctx.translate(hm.x, hm.y);
+      ctx.rotate(Math.PI / 4);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = '#FF4655';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      const len = 10;
+      ctx.beginPath();
+      ctx.moveTo(-len, -len);
+      ctx.lineTo(len, len);
+      ctx.moveTo(len, -len);
+      ctx.lineTo(-len, len);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Damage numbers
+    for (const dn of this.damageNumbers) {
+      const progress = dn.time / dn.duration;
+      const alpha = 1 - progress * progress;
+      const y = dn.startY - progress * 50;
+      const x = dn.x + dn.offsetX * progress;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = dn.isHeadshot ? 'bold 24px "JetBrains Mono", monospace' : 'bold 18px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (dn.isHeadshot) {
+        ctx.shadowColor = '#FF4655';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#FF4655';
+      } else {
+        ctx.fillStyle = '#ece8e1';
+      }
+      ctx.fillText(dn.value, x, y);
+      ctx.restore();
+    }
+
+    // Particles (kill burst)
+    for (const p of this.particles) {
+      const alpha = 1 - p.life / p.maxLife;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Sparks
+    for (const s of this.sparks) {
+      const alpha = 1 - s.life / s.maxLife;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ffcc66';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size * alpha, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  clear() {
+    this.hitMarkers.length = 0;
+    this.damageNumbers.length = 0;
+    this.particles.length = 0;
+    this.sparks.length = 0;
+  }
+}
+
+/* ============================================
+   RENDERER
+   ============================================ */
+class Renderer {
+  static clear(ctx, w, h) {
+    ctx.clearRect(0, 0, w, h);
+  }
+
+  static drawBackground(ctx, w, h, theme) {
+    const gradient = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w,h)*0.7);
+    if (theme === 'red-accent') {
+      gradient.addColorStop(0, 'rgba(255,70,85,0.08)');
+      gradient.addColorStop(0.5, 'rgba(255,70,85,0.03)');
+    } else {
+      gradient.addColorStop(0, 'rgba(255,70,85,0.04)');
+      gradient.addColorStop(0.5, 'rgba(255,70,85,0.01)');
+    }
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  static drawTarget(ctx, x, y, radius, showHeadshot = true) {
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 50, 50, 0.85)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Inner ring
+    const innerR = radius * 0.6;
+    ctx.beginPath();
+    ctx.arc(x, y, innerR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 30, 30, 0.7)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (showHeadshot) {
+      // Center headshot zone
+      const hsR = radius * 0.28;
+      ctx.beginPath();
+      ctx.arc(x, y, hsR, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 220, 220, 0.5)';
+      ctx.fill();
+      // Center dot
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fill();
+    }
+  }
+
+  static drawCrosshair(ctx, x, y, cfg) {
+    const { size, thickness, gap, color, dot, outline } = cfg;
+    const halfThick = thickness / 2;
+    const armLen = size * thickness;
+    const offset = gap + thickness;
+
+    const drawArms = (clr, w) => {
+      ctx.strokeStyle = clr;
+      ctx.lineWidth = w || thickness;
+      ctx.lineCap = 'square';
+
+      // Top
+      ctx.beginPath();
+      ctx.moveTo(x, y - offset);
+      ctx.lineTo(x, y - offset - armLen);
+      ctx.stroke();
+
+      // Bottom
+      ctx.beginPath();
+      ctx.moveTo(x, y + offset);
+      ctx.lineTo(x, y + offset + armLen);
+      ctx.stroke();
+
+      // Left
+      ctx.beginPath();
+      ctx.moveTo(x - offset, y);
+      ctx.lineTo(x - offset - armLen, y);
+      ctx.stroke();
+
+      // Right
+      ctx.beginPath();
+      ctx.moveTo(x + offset, y);
+      ctx.lineTo(x + offset + armLen, y);
+      ctx.stroke();
+    };
+
+    if (outline) {
+      drawArms('rgba(0,0,0,0.5)', thickness + 2);
+    }
+
+    drawArms(color, thickness);
+
+    if (dot) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x - halfThick, y - halfThick, thickness, thickness);
+    }
+  }
+
+  static drawWeaponSilhouette(ctx, w, h) {
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.strokeStyle = '#ece8e1';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const cx = w / 2;
+    const by = h - 60;
+    const sw = 120;
+    const sh = 200;
+
+    ctx.beginPath();
+    // Simplified pistol silhouette
+    // Barrel
+    ctx.moveTo(cx - 4, by - sh);
+    ctx.lineTo(cx + 4, by - sh);
+    ctx.lineTo(cx + 4, by - sh * 0.7);
+    ctx.lineTo(cx + 10, by - sh * 0.65);
+    ctx.lineTo(cx + 10, by - sh * 0.55);
+    // Slide
+    ctx.lineTo(cx + 6, by - sh * 0.5);
+    ctx.lineTo(cx + 6, by - sh * 0.25);
+    // Grip
+    ctx.lineTo(cx + 12, by - sh * 0.2);
+    ctx.lineTo(cx + 12, by);
+    ctx.lineTo(cx + 8, by + 5);
+    ctx.lineTo(cx - 8, by + 5);
+    ctx.lineTo(cx - 12, by);
+    ctx.lineTo(cx - 12, by - sh * 0.2);
+    ctx.lineTo(cx - 6, by - sh * 0.25);
+    ctx.lineTo(cx - 6, by - sh * 0.5);
+    // Trigger guard
+    ctx.moveTo(cx - 6, by - sh * 0.5);
+    ctx.lineTo(cx - 10, by - sh * 0.55);
+    ctx.lineTo(cx - 10, by - sh * 0.65);
+    ctx.lineTo(cx - 4, by - sh * 0.7);
+    ctx.lineTo(cx - 4, by - sh);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  static drawTrackingIndicator(ctx, x, y, onTarget) {
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = onTarget ? '#00FF00' : '#FF4655';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(x, y, 24, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
+
+/* ============================================
+   GRIDSHOT MODE
+   ============================================ */
+class GridshotMode {
+  constructor(game) {
+    this.game = game;
+    this.name = 'gridshot';
+    this.displayName = 'GRIDSHOT';
+  }
+
+  start() {
+    this.score = 0;
+    this.shots = 0;
+    this.hits = 0;
+    this.headshots = 0;
+    this.streak = 0;
+    this.maxStreak = 0;
+    this.reactionTimes = [];
+    this.timeLeft = this.game.getTimerDuration();
+    this.running = true;
+    this.targets = [];
+    this.nextId = 0;
+
+    const size = this.game.getTargetSize();
+    const cols = 5;
+    const rows = 8;
+    const w = this.game.width;
+    const h = this.game.height;
+    const margin = 60;
+    const gapX = (w - margin * 2) / cols;
+    const gapY = (h - margin * 2) / rows;
+    const rad = size === 'small' ? 14 : size === 'medium' ? 18 : 24;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        this.targets.push({
+          id: this.nextId++,
+          x: margin + c * gapX + gapX / 2,
+          y: margin + r * gapY + gapY / 2,
+          radius: rad,
+          alive: true,
+          respawnTimer: 0,
+          spawnScale: 1
+        });
+      }
+    }
+  }
+
+  update(dt) {
+    if (!this.running) return;
+    this.timeLeft -= dt;
+    if (this.timeLeft <= 0) { this.timeLeft = 0; this.running = false; return; }
+
+    let respawning = false;
+    for (const t of this.targets) {
+      if (!t.alive) {
+        t.respawnTimer -= dt;
+        if (t.respawnTimer <= 0) {
+          t.alive = true;
+          t.spawnScale = 0;
+        }
+      }
+      if (t.alive && t.spawnScale < 1) {
+        t.spawnScale = Math.min(1, t.spawnScale + dt * 8);
+      }
+    }
+  }
+
+  render(ctx) {
+    const w = this.game.width;
+    const h = this.game.height;
+    for (const t of this.targets) {
+      if (t.alive) {
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        ctx.scale(t.spawnScale, t.spawnScale);
+        Renderer.drawTarget(ctx, 0, 0, t.radius);
+        ctx.restore();
+      }
+    }
+  }
+
+  onMouseDown(x, y) {
+    if (!this.running) return null;
+    this.shots++;
+    const now = performance.now();
+
+    for (const t of this.targets) {
+      if (!t.alive) continue;
+      const dx = x - t.x;
+      const dy = y - t.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= t.radius) {
+        const isHeadshot = dist <= t.radius * 0.28;
+        if (isHeadshot) this.headshots++;
+        this.hits++;
+        this.streak++;
+        if (this.streak > this.maxStreak) this.maxStreak = this.streak;
+        const timeBonus = Math.floor((this.timeLeft / this.game.getTimerDuration()) * 50);
+        const base = 100;
+        const headBonus = isHeadshot ? 50 : 0;
+        this.score += base + timeBonus + headBonus;
+        t.alive = false;
+        t.respawnTimer = 0.25;
+        const rt = this.game.lastClickTime ? (now - this.game.lastClickTime) / 1000 : 0.2;
+        this.reactionTimes.push(rt);
+        this.game.lastClickTime = now;
+        this.game.effects.addHitMarker(x, y);
+        this.game.effects.addDamageNumber(x, y, Math.floor(base + timeBonus + headBonus), isHeadshot);
+        if (isHeadshot) this.game.effects.addSparks(x, y, 6);
+        return { hit: true, headshot: isHeadshot };
+      }
+    }
+
+    // Miss
+    this.streak = 0;
+    this.game.effects.addDamageNumber(x, y, 'MISS', false);
+    return { hit: false, headshot: false };
+  }
+
+  onMouseMove(x, y) {}
+
+  end() {
+    this.running = false;
+    return {
+      score: this.score,
+      hits: this.hits,
+      shots: this.shots,
+      headshots: this.headshots,
+      streak: this.maxStreak,
+      reactionTimes: this.reactionTimes,
+      mode: this.name
+    };
+  }
+}
+
+/* ============================================
+   TRACKING MODE
+   ============================================ */
+class TrackingMode {
+  constructor(game) {
+    this.game = game;
+    this.name = 'tracking';
+    this.displayName = 'TRACKING';
+  }
+
+  start() {
+    this.score = 0;
+    this.shots = 0;
+    this.hits = 0;
+    this.headshots = 0;
+    this.streak = 0;
+    this.maxStreak = 0;
+    this.reactionTimes = [];
+    this.timeLeft = this.game.getTimerDuration();
+    this.running = true;
+    this.elapsed = 0;
+    this.onTargetTime = 0;
+    this.onTarget = false;
+
+    const size = this.game.getTargetSize();
+    const rad = size === 'small' ? 16 : size === 'medium' ? 22 : 30;
+    this.target = { x: this.game.width / 2, y: this.game.height / 2, radius: rad };
+    this.speed = 1.0;
+  }
+
+  update(dt) {
+    if (!this.running) return;
+    this.timeLeft -= dt;
+    this.elapsed += dt;
+    if (this.timeLeft <= 0) { this.timeLeft = 0; this.running = false; return; }
+
+    // Difficulty ramp
+    this.speed = 1.0 + Math.floor(this.elapsed / 15) * 0.2;
+
+    // Figure-8 path (Lissajous)
+    const t = this.elapsed * 0.8 * this.speed;
+    const w = this.game.width * 0.35;
+    const h = this.game.height * 0.3;
+    const cx = this.game.width / 2;
+    const cy = this.game.height / 2;
+
+    this.target.x = cx + Math.sin(t) * w + Math.sin(t * 1.3) * 20;
+    this.target.y = cy + Math.sin(t * 2) * h + Math.cos(t * 0.7) * 15;
+
+    // Check on-target for scoring
+    if (this.game.mouseX !== undefined && this.game.mouseY !== undefined) {
+      const dx = this.game.mouseX - this.target.x;
+      const dy = this.game.mouseY - this.target.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      this.onTarget = dist <= this.target.radius;
+      if (this.onTarget) {
+        this.onTargetTime += dt * 1000;
+        this.hits++;
+      }
+      this.shots++;
+      this.score = Math.floor(this.onTargetTime);
+    }
+  }
+
+  render(ctx) {
+    Renderer.drawTarget(ctx, this.target.x, this.target.y, this.target.radius);
+    Renderer.drawTrackingIndicator(ctx, this.target.x, this.target.y, this.onTarget);
+  }
+
+  onMouseDown(x, y) {
+    if (!this.running) return null;
+    this.shots++;
+    const dx = x - this.target.x;
+    const dy = y - this.target.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= this.target.radius) {
+      this.hits++;
+      this.streak++;
+      if (this.streak > this.maxStreak) this.maxStreak = this.streak;
+      const isHeadshot = dist <= this.target.radius * 0.28;
+      if (isHeadshot) this.headshots++;
+      this.game.effects.addHitMarker(x, y);
+      this.game.effects.addDamageNumber(x, y, Math.floor(this.score), isHeadshot);
+      return { hit: true, headshot: isHeadshot };
+    }
+    this.streak = 0;
+    return { hit: false, headshot: false };
+  }
+
+  onMouseMove(x, y) {
+    this.game.mouseX = x;
+    this.game.mouseY = y;
+  }
+
+  end() {
+    this.running = false;
+    return {
+      score: this.score,
+      hits: this.hits,
+      shots: this.shots,
+      headshots: this.headshots,
+      streak: this.maxStreak,
+      reactionTimes: this.reactionTimes,
+      mode: this.name,
+      accuracy: this.shots > 0 ? (this.onTargetTime / (this.elapsed * 1000) * 100) : 0
+    };
+  }
+}
+
+/* ============================================
+   REFLEX MODE
+   ============================================ */
+class ReflexMode {
+  constructor(game) {
+    this.game = game;
+    this.name = 'reflex';
+    this.displayName = 'REFLEX';
+  }
+
+  start() {
+    this.score = 0;
+    this.shots = 0;
+    this.hits = 0;
+    this.headshots = 0;
+    this.streak = 0;
+    this.maxStreak = 0;
+    this.reactionTimes = [];
+    this.timeLeft = this.game.getTimerDuration();
+    this.running = true;
+    this.kills = 0;
+
+    const size = this.game.getTargetSize();
+    const rad = size === 'small' ? 16 : size === 'medium' ? 22 : 30;
+    this.visibility = size === 'small' ? 0.5 : size === 'medium' ? 0.7 : 1.0;
+    this.target = { x: 0, y: 0, radius: rad, alive: false, timer: 0 };
+    this._spawnTarget();
+  }
+
+  _spawnTarget() {
+    const margin = 80;
+    const w = this.game.width;
+    const h = this.game.height;
+    this.target.x = margin + Math.random() * (w - margin * 2);
+    this.target.y = margin + Math.random() * (h - margin * 2);
+    this.target.alive = true;
+    // Visibility shrinks by 5% per 10 kills
+    const shrink = Math.min(0.5, Math.floor(this.kills / 10) * 0.05);
+    this.target.timer = this.visibility * (1 - shrink);
+  }
+
+  update(dt) {
+    if (!this.running) return;
+    this.timeLeft -= dt;
+    if (this.timeLeft <= 0) { this.timeLeft = 0; this.running = false; return; }
+
+    if (this.target.alive) {
+      this.target.timer -= dt;
+      if (this.target.timer <= 0) {
+        this.target.alive = false;
+        // Miss penalty
+        this.timeLeft = Math.max(0, this.timeLeft - 0.5);
+        this.streak = 0;
+        this._scheduleNext();
+      }
+    }
+  }
+
+  _scheduleNext() {
+    setTimeout(() => {
+      if (this.running) this._spawnTarget();
+    }, 300);
+  }
+
+  render(ctx) {
+    if (this.target.alive) {
+      Renderer.drawTarget(ctx, this.target.x, this.target.y, this.target.radius);
+    }
+  }
+
+  onMouseDown(x, y) {
+    if (!this.running || !this.target.alive) return null;
+    this.shots++;
+    const now = performance.now();
+    const dx = x - this.target.x;
+    const dy = y - this.target.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= this.target.radius) {
+      const isHeadshot = dist <= this.target.radius * 0.28;
+      if (isHeadshot) this.headshots++;
+      this.hits++;
+      this.kills++;
+      this.streak++;
+      if (this.streak > this.maxStreak) this.maxStreak = this.streak;
+      this.score += isHeadshot ? 150 : 100;
+      const rt = this.game.lastClickTime ? (now - this.game.lastClickTime) / 1000 : 0.2;
+      this.reactionTimes.push(rt);
+      this.game.lastClickTime = now;
+      this.target.alive = false;
+      this.game.effects.addHitMarker(x, y);
+      this.game.effects.addDamageNumber(x, y, isHeadshot ? 150 : 100, isHeadshot);
+      if (isHeadshot) this.game.effects.addSparks(x, y, 6);
+      this.game.effects.addKillBurst(this.target.x, this.target.y);
+      this._scheduleNext();
+      return { hit: true, headshot: isHeadshot };
+    }
+    this.streak = 0;
+    return { hit: false, headshot: false };
+  }
+
+  onMouseMove(x, y) {}
+
+  end() {
+    this.running = false;
+    return {
+      score: this.score,
+      hits: this.hits,
+      shots: this.shots,
+      headshots: this.headshots,
+      streak: this.maxStreak,
+      reactionTimes: this.reactionTimes,
+      mode: this.name
+    };
+  }
+}
+
+/* ============================================
+   DEATHMATCH MODE
+   ============================================ */
+class DeathmatchMode {
+  constructor(game) {
+    this.game = game;
+    this.name = 'deathmatch';
+    this.displayName = 'DEATHMATCH';
+  }
+
+  start() {
+    this.score = 0;
+    this.shots = 0;
+    this.hits = 0;
+    this.headshots = 0;
+    this.streak = 0;
+    this.maxStreak = 0;
+    this.reactionTimes = [];
+    this.timeLeft = this.game.getTimerDuration();
+    this.running = true;
+    this.kills = 0;
+
+    const size = this.game.getTargetSize();
+    const rad = size === 'small' ? 16 : size === 'medium' ? 22 : 30;
+
+    this.target = {
+      x: this.game.width / 2, y: this.game.height / 2,
+      radius: rad,
+      vx: 100, vy: 60,
+      alive: true,
+      wobblePhase: Math.random() * Math.PI * 2
+    };
+    this.speed = 100;
+    this._spawnTarget();
+  }
+
+  _spawnTarget() {
+    if (!this.running) return;
+    const margin = 80;
+    const w = this.game.width;
+    const h = this.game.height;
+    // Spawn at random edge
+    const edge = Math.floor(Math.random() * 4);
+    switch (edge) {
+      case 0: this.target.x = Math.random() * w; this.target.y = margin; break;
+      case 1: this.target.x = w - margin; this.target.y = Math.random() * h; break;
+      case 2: this.target.x = Math.random() * w; this.target.y = h - margin; break;
+      case 3: this.target.x = margin; this.target.y = Math.random() * h; break;
+    }
+    const angle = Math.random() * Math.PI * 2;
+    this.target.vx = Math.cos(angle) * this.speed;
+    this.target.vy = Math.sin(angle) * this.speed;
+    this.target.alive = true;
+    this.target.wobblePhase = Math.random() * Math.PI * 2;
+  }
+
+  update(dt) {
+    if (!this.running) return;
+    this.timeLeft -= dt;
+    if (this.timeLeft <= 0) { this.timeLeft = 0; this.running = false; return; }
+
+    if (this.target.alive) {
+      const wobble = Math.sin(this.target.wobblePhase + this.game._elapsed * 6) * 4;
+      this.target.wobblePhase += dt * 4;
+      this.target.x += (this.target.vx + wobble) * dt;
+      this.target.y += this.target.vy * dt;
+
+      // Bounce off walls
+      const m = 20;
+      if (this.target.x < m) { this.target.x = m; this.target.vx = Math.abs(this.target.vx); }
+      if (this.target.x > this.game.width - m) { this.target.x = this.game.width - m; this.target.vx = -Math.abs(this.target.vx); }
+      if (this.target.y < m) { this.target.y = m; this.target.vy = Math.abs(this.target.vy); }
+      if (this.target.y > this.game.height - m) { this.target.y = this.game.height - m; this.target.vy = -Math.abs(this.target.vy); }
+    }
+  }
+
+  render(ctx) {
+    if (this.target.alive) {
+      Renderer.drawTarget(ctx, this.target.x, this.target.y, this.target.radius);
+    }
+  }
+
+  onMouseDown(x, y) {
+    if (!this.running || !this.target.alive) return null;
+    this.shots++;
+    const now = performance.now();
+    const dx = x - this.target.x;
+    const dy = y - this.target.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= this.target.radius) {
+      const isHeadshot = dist <= this.target.radius * 0.28;
+      if (isHeadshot) this.headshots++;
+      this.hits++;
+      this.kills++;
+      this.streak++;
+      if (this.streak > this.maxStreak) this.maxStreak = this.streak;
+      const points = isHeadshot ? 150 : 100;
+      this.score += points;
+      this.target.alive = false;
+      const rt = this.game.lastClickTime ? (now - this.game.lastClickTime) / 1000 : 0.2;
+      this.reactionTimes.push(rt);
+      this.game.lastClickTime = now;
+      // Speed scales with kills
+      this.speed = 100 + this.kills * 8;
+      this.game.effects.addHitMarker(x, y);
+      this.game.effects.addDamageNumber(x, y, points, isHeadshot);
+      if (isHeadshot) {
+        this.game.effects.addSparks(x, y, 8);
+        this.game.effects.addKillBurst(this.target.x, this.target.y);
+        // Instant respawn on headshot
+        this._spawnTarget();
+      } else {
+        // Brief delay on body kill
+        setTimeout(() => { if (this.running) this._spawnTarget(); }, 150);
+      }
+      return { hit: true, headshot: isHeadshot };
+    }
+    this.streak = 0;
+    return { hit: false, headshot: false };
+  }
+
+  onMouseMove(x, y) {}
+
+  end() {
+    this.running = false;
+    return {
+      score: this.score,
+      hits: this.hits,
+      shots: this.shots,
+      headshots: this.headshots,
+      streak: this.maxStreak,
+      reactionTimes: this.reactionTimes,
+      mode: this.name
+    };
+  }
+}
+
+/* ============================================
+   GAME ORCHESTRATOR
+   ============================================ */
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('gameCanvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.audio = new AudioManager();
+    this.stats = new StatsManager();
+    this.effects = new EffectManager();
+    this.state = 'menu'; // menu | countdown | playing | paused | score
+    this.mode = null;
+    this.mouseX = -100;
+    this.mouseY = -100;
+    this.lastClickTime = 0;
+    this._elapsed = 0;
+    this._lastTime = 0;
+    this._rafId = null;
+    this.width = 0;
+    this.height = 0;
+    this._dpr = window.devicePixelRatio || 1;
+    this._lastResult = null;
+    this._currentModeName = null;
+  }
+
+  init() {
+    this._setupCanvas();
+    this._bindEvents();
+    this._applySettings();
+    this._populateStats();
+    this._initSettingsUI();
+    this._renderCrosshairPreview();
+  }
+
+  _setupCanvas() {
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
+    this.canvas.width = this.width * this._dpr;
+    this.canvas.height = this.height * this._dpr;
+    this.canvas.style.width = this.width + 'px';
+    this.canvas.style.height = this.height + 'px';
+    this.ctx.scale(this._dpr, this._dpr);
+  }
+
+  getTimerDuration() {
+    return this.stats.getSettings().timer;
+  }
+
+  getTargetSize() {
+    return this.stats.getSettings().targetSize;
+  }
+
+  /* ==========================================
+     STATE MACHINE
+     ========================================== */
+  showMenu(id) {
+    document.querySelectorAll('.menu-screen').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById(id);
+    if (target) target.classList.add('active');
+    document.getElementById('hud').classList.remove('visible');
+    document.getElementById('pause-overlay').classList.remove('active');
+    this.state = 'menu'; this._updateCursor();
+    if (this.mode) { this.mode.end(); this.mode = null; }
+    this.effects.clear();
+    if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+    if (id === 'menu-stats') this._populateStats();
+    this.audio.play('menuClick');
+  }
+
+  startGame(modeName) {
+    this._currentModeName = modeName;
+    this.audio.play('menuClick');
+    this._startCountdown();
+  }
+
+  _startCountdown() {
+    this.state = 'countdown'; this._updateCursor();
+    document.querySelectorAll('.menu-screen').forEach(el => el.classList.remove('active'));
+    const overlay = document.getElementById('countdown-overlay');
+    const display = document.getElementById('countdownDisplay');
+
+    overlay.classList.add('active');
+
+    const steps = ['3', '2', '1', 'GO'];
+    let i = 0;
+    const playStep = () => {
+      if (i >= steps.length) {
+        overlay.classList.remove('active');
+        this._beginRound();
+        return;
+      }
+      const val = steps[i];
+      display.textContent = val;
+      display.className = 'countdown-number';
+      if (val === 'GO') {
+        display.classList.add('go');
+        this.audio.play('go');
+      } else {
+        this.audio.play('countdown');
+      }
+      // Re-trigger animation
+      void display.offsetWidth;
+      display.style.animation = 'none';
+      void display.offsetWidth;
+      display.style.animation = '';
+      display.className = 'countdown-number' + (val === 'GO' ? ' go' : '');
+      i++;
+      setTimeout(playStep, val === 'GO' ? 400 : 600);
+    };
+    playStep();
+  }
+
+  _beginRound() {
+    this.lastClickTime = performance.now();
+    this._elapsed = 0;
+    this._lastTime = performance.now();
+
+    switch (this._currentModeName) {
+      case 'gridshot': this.mode = new GridshotMode(this); break;
+      case 'tracking': this.mode = new TrackingMode(this); break;
+      case 'reflex': this.mode = new ReflexMode(this); break;
+      case 'deathmatch': this.mode = new DeathmatchMode(this); break;
+    }
+
+    this.mode.start();
+    this.state = 'playing'; this._updateCursor();
+    document.getElementById('hud').classList.add('visible');
+    this._updateHUD();
+    this._rafId = requestAnimationFrame((t) => this._loop(t));
+  }
+
+  _loop(timestamp) {
+    if (this.state === 'paused') {
+      this._rafId = requestAnimationFrame((t) => this._loop(t));
+      this._render();
+      return;
+    }
+
+    const dt = Math.min((timestamp - this._lastTime) / 1000, 0.05);
+    this._lastTime = timestamp;
+    this._elapsed += dt;
+
+    this.mode.update(dt);
+    this.effects.update(dt);
+    this._render();
+    this._updateHUD();
+
+    if (!this.mode.running) {
+      this._endRound();
+      return;
+    }
+
+    this._rafId = requestAnimationFrame((t) => this._loop(t));
+  }
+
+  _render() {
+    const ctx = this.ctx;
+    const w = this.width;
+    const h = this.height;
+    const theme = this.stats.getSettings().theme;
+
+    Renderer.clear(ctx, w, h);
+    Renderer.drawBackground(ctx, w, h, theme);
+
+    if (this.mode) this.mode.render(ctx);
+
+    this.effects.render(ctx);
+
+    if (this.state === 'playing' || this.state === 'paused') {
+      const ch = this.stats.getSettings().crosshair;
+      Renderer.drawCrosshair(ctx, this.mouseX, this.mouseY, ch);
+      Renderer.drawWeaponSilhouette(ctx, w, h);
+    }
+  }
+
+  _updateHUD() {
+    if (!this.mode) return;
+    document.getElementById('hudModeName').textContent = this.mode.displayName || this._currentModeName.toUpperCase();
+
+    // Timer
+    const timeLeft = Math.max(0, this.mode.timeLeft || 0);
+    const secs = Math.ceil(timeLeft);
+    const mins = Math.floor(secs / 60);
+    const remainSecs = secs % 60;
+    const timerEl = document.getElementById('hudTimer');
+    timerEl.textContent = mins > 0
+      ? mins + ':' + String(remainSecs).padStart(2, '0')
+      : String(remainSecs);
+    timerEl.classList.toggle('warning', secs <= 5 && this.state === 'playing');
+
+    // Score
+    document.getElementById('hudScore').textContent = this.mode.score || 0;
+
+    // Accuracy
+    const shots = this.mode.shots || 0;
+    const hits = this.mode.hits || 0;
+    const acc = shots > 0 ? Math.round((hits / shots) * 100) : 100;
+    document.getElementById('hudAccuracy').textContent = acc + '%';
+
+    // Streak & Headshots
+    document.getElementById('hudHeadshots').textContent = 'HEADSHOTS: ' + (this.mode.headshots || 0);
+    document.getElementById('hudStreak').textContent = 'STREAK: ' + (this.mode.streak || 0);
+  }
+
+  _endRound() {
+    if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+
+    const result = this.mode.end();
+    this._lastResult = result;
+
+    const isNewHigh = this.stats.recordGame(
+      result.mode, result.score,
+      result.hits, result.shots,
+      result.headshots, result.streak,
+      result.reactionTimes
+    );
+
+    this.state = 'score'; this._updateCursor();
+    document.getElementById('hud').classList.remove('visible');
+    this._showScore(result, isNewHigh);
+  }
+
+  _showScore(result, isNewHigh) {
+    const menu = document.getElementById('menu-score');
+    document.querySelectorAll('.menu-screen').forEach(el => el.classList.remove('active'));
+    menu.classList.add('active');
+
+    document.getElementById('finalScore').textContent = result.score;
+    const hl = document.getElementById('highScoreHighlight');
+    if (isNewHigh && result.score > 0) {
+      hl.classList.add('show');
+    } else {
+      hl.classList.remove('show');
+    }
+
+    const shots = result.shots || 1;
+    const acc = Math.round((result.hits / shots) * 100);
+    const hsPct = result.hits > 0 ? Math.round((result.headshots / result.hits) * 100) : 0;
+
+    document.getElementById('scoreDetails').innerHTML = `
+      <div class="score-detail-item">
+        <div class="detail-label">KILLS</div>
+        <div class="detail-value">${result.hits}</div>
+      </div>
+      <div class="score-detail-item">
+        <div class="detail-label">ACCURACY</div>
+        <div class="detail-value">${acc}%</div>
+      </div>
+      <div class="score-detail-item">
+        <div class="detail-label">HEADSHOT %</div>
+        <div class="detail-value">${hsPct}%</div>
+      </div>
+      <div class="score-detail-item">
+        <div class="detail-label">BEST STREAK</div>
+        <div class="detail-value">${result.streak}</div>
+      </div>
+    `;
+
+    document.getElementById('playAgainBtn').onclick = () => {
+      this.audio.play('menuClick');
+      this.startGame(result.mode);
+    };
+  }
+
+  /* ==========================================
+     EVENTS
+     ========================================== */
+  _bindEvents() {
+    // Mouse
+    this.canvas.addEventListener('mousedown', (e) => {
+      this._unlockAudio();
+      const pos = this._getPos(e);
+      if (this.state === 'playing' && this.mode) {
+        const r = this.mode.onMouseDown(pos.x, pos.y);
+        if (r) {
+          if (r.headshot) this.audio.play('headshot');
+          else if (r.hit) this.audio.play('hit');
+          else this.audio.play('miss');
+        }
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      const pos = this._getPos(e);
+      this.mouseX = pos.x;
+      this.mouseY = pos.y;
+      if (this.mode) this.mode.onMouseMove(pos.x, pos.y);
+    });
+
+    // Touch
+    this.canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      this._unlockAudio();
+      const touch = e.touches[0];
+      const pos = this._getPos(touch);
+      this.mouseX = pos.x;
+      this.mouseY = pos.y;
+      if (this.state === 'playing' && this.mode) {
+        const r = this.mode.onMouseDown(pos.x, pos.y);
+        if (r) {
+          if (r.headshot) this.audio.play('headshot');
+          else if (r.hit) this.audio.play('hit');
+          else this.audio.play('miss');
+        }
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const pos = this._getPos(touch);
+      this.mouseX = pos.x;
+      this.mouseY = pos.y;
+      if (this.mode) this.mode.onMouseMove(pos.x, pos.y);
+    }, { passive: false });
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case '1': if (this.state === 'menu') this.startGame('gridshot'); break;
+        case '2': if (this.state === 'menu') this.startGame('tracking'); break;
+        case '3': if (this.state === 'menu') this.startGame('reflex'); break;
+        case '4': if (this.state === 'menu') this.startGame('deathmatch'); break;
+        case 'Enter': if (this.state === 'menu') this.startGame('gridshot'); break;
+        case 'Escape':
+          if (this.state === 'playing') this._pause();
+          else if (this.state === 'paused') this._resume();
+          else if (this.state === 'menu') {
+            const active = document.querySelector('.menu-screen.active');
+            if (active && active.id !== 'menu-main') this.showMenu('menu-main');
+          }
+          break;
+        case 'r':
+        case 'R':
+          if (this.state === 'playing' || this.state === 'paused') {
+            if (this.mode) this.startGame(this.mode.name);
+          }
+          break;
+        case 'm':
+        case 'M':
+          if (this.state !== 'menu') this.showMenu('menu-main');
+          break;
+      }
+    });
+
+    // Resize
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        this._setupCanvas();
+      }, 200);
+    });
+
+    // Menu actions (delegated)
+    document.getElementById('ui-overlay').addEventListener('click', (e) => {
+      const action = e.target.closest('[data-action]');
+      if (action) {
+        const act = action.dataset.action;
+        if (act.startsWith('show-')) {
+          this.showMenu('menu-' + act.slice(5));
+        }
+      }
+
+      // Mode cards
+      const card = e.target.closest('.mode-card');
+      if (card && card.dataset.mode) {
+        this.startGame(card.dataset.mode);
+      }
+    });
+
+    // Pause controls
+    document.getElementById('resumeBtn').addEventListener('click', () => this._resume());
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      if (this.mode) this.startGame(this.mode.name);
+    });
+
+    // Settings UI binding (in _initSettingsUI)
+  }
+
+  _getPos(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const clientX = e.clientX !== undefined ? e.clientX : e.pageX;
+    const clientY = e.clientY !== undefined ? e.clientY : e.pageY;
+    const sens = this.stats.getSettings().sensitivity;
+    return {
+      x: (clientX - rect.left) * sens,
+      y: (clientY - rect.top) * sens
+    };
+  }
+
+  _unlockAudio() {
+    if (this.audio.ctx && this.audio.ctx.state === 'suspended') {
+      this.audio.ctx.resume();
+    }
+  }
+
+  _pause() {
+    if (this.state !== 'playing') return;
+    this.state = 'paused'; this._updateCursor();
+    this.audio.play('menuClick');
+    document.getElementById('pause-overlay').classList.add('active');
+  }
+
+  _resume() {
+    if (this.state !== 'paused') return;
+    this.state = 'playing'; this._updateCursor();
+    this._lastTime = performance.now();
+    document.getElementById('pause-overlay').classList.remove('active');
+  }
+
+  /* ==========================================
+     SETTINGS UI
+     ========================================== */
+  _initSettingsUI() {
+    const s = this.stats.getSettings();
+    const ch = s.crosshair;
+
+    // Sensitivity
+    const sensSlider = document.getElementById('sensitivity');
+    sensSlider.value = s.sensitivity;
+    document.getElementById('sensValue').textContent = s.sensitivity.toFixed(2);
+    sensSlider.addEventListener('input', () => {
+      const val = parseFloat(sensSlider.value);
+      document.getElementById('sensValue').textContent = val.toFixed(2);
+      this.stats.updateSetting('sensitivity', val);
+    });
+
+    // Target size options
+    this._initOptions('targetSize', (val) => {
+      this.stats.updateSetting('targetSize', val);
+    }, s.targetSize);
+
+    // Timer options
+    this._initOptions('roundTimer', (val) => {
+      this.stats.updateSetting('timer', parseInt(val));
+    }, String(s.timer));
+
+    // Sound toggle
+    const soundToggle = document.getElementById('soundToggle');
+    soundToggle.classList.toggle('active', s.soundEnabled);
+    soundToggle.addEventListener('click', () => {
+      const val = soundToggle.classList.toggle('active');
+      this.stats.updateSetting('soundEnabled', val);
+      this.audio.setEnabled(val);
+    });
+
+    // Theme options
+    this._initOptions('themeSelect', (val) => {
+      this.stats.updateSetting('theme', val);
+      this._applySettings();
+    }, s.theme);
+
+    // Crosshair controls
+    const chSize = document.getElementById('chSize');
+    chSize.value = ch.size;
+    document.getElementById('chSizeValue').textContent = ch.size;
+    chSize.addEventListener('input', () => {
+      const val = parseInt(chSize.value);
+      document.getElementById('chSizeValue').textContent = val;
+      this.stats.updateSetting('crosshair.size', val);
+      this._renderCrosshairPreview();
+    });
+
+    const chGap = document.getElementById('chGap');
+    chGap.value = ch.gap;
+    document.getElementById('chGapValue').textContent = ch.gap;
+    chGap.addEventListener('input', () => {
+      const val = parseInt(chGap.value);
+      document.getElementById('chGapValue').textContent = val;
+      this.stats.updateSetting('crosshair.gap', val);
+      this._renderCrosshairPreview();
+    });
+
+    const chThick = document.getElementById('chThickness');
+    chThick.value = ch.thickness;
+    document.getElementById('chThickValue').textContent = ch.thickness;
+    chThick.addEventListener('input', () => {
+      const val = parseInt(chThick.value);
+      document.getElementById('chThickValue').textContent = val;
+      this.stats.updateSetting('crosshair.thickness', val);
+      this._renderCrosshairPreview();
+    });
+
+    // Crosshair outline toggle
+    const chOutline = document.getElementById('chOutline');
+    chOutline.classList.toggle('active', ch.outline);
+    chOutline.addEventListener('click', () => {
+      const val = chOutline.classList.toggle('active');
+      this.stats.updateSetting('crosshair.outline', val);
+      this._renderCrosshairPreview();
+    });
+
+    // Crosshair dot toggle
+    const chDot = document.getElementById('chDot');
+    chDot.classList.toggle('active', ch.dot);
+    chDot.addEventListener('click', () => {
+      const val = chDot.classList.toggle('active');
+      this.stats.updateSetting('crosshair.dot', val);
+      this._renderCrosshairPreview();
+    });
+
+    // Color swatches
+    document.querySelectorAll('#chColors .color-swatch').forEach(sw => {
+      sw.classList.toggle('active', sw.dataset.color === ch.color);
+      sw.addEventListener('click', () => {
+        document.querySelectorAll('#chColors .color-swatch').forEach(s => s.classList.remove('active'));
+        sw.classList.add('active');
+        this.stats.updateSetting('crosshair.color', sw.dataset.color);
+        this._renderCrosshairPreview();
+      });
+    });
+
+    // Reset crosshair
+    document.getElementById('resetCrosshair').addEventListener('click', () => {
+      this.stats.resetCrosshair();
+      this._syncCrosshairUI();
+      this._renderCrosshairPreview();
+    });
+
+    // Reset stats
+    document.getElementById('resetStats').addEventListener('click', () => {
+      if (confirm('Reset all statistics? This cannot be undone.')) {
+        this.stats.resetStats();
+        this._populateStats();
+      }
+    });
+  }
+
+  _initOptions(groupId, onChange, activeValue) {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    group.querySelectorAll('.setting-option').forEach(btn => {
+      const val = btn.dataset.value;
+      btn.classList.toggle('active', val === activeValue);
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('.setting-option').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        onChange(val);
+      });
+    });
+  }
+
+  _syncCrosshairUI() {
+    const ch = this.stats.getSettings().crosshair;
+    document.getElementById('chSize').value = ch.size;
+    document.getElementById('chSizeValue').textContent = ch.size;
+    document.getElementById('chGap').value = ch.gap;
+    document.getElementById('chGapValue').textContent = ch.gap;
+    document.getElementById('chThickness').value = ch.thickness;
+    document.getElementById('chThickValue').textContent = ch.thickness;
+    document.getElementById('chOutline').classList.toggle('active', ch.outline);
+    document.getElementById('chDot').classList.toggle('active', ch.dot);
+    document.querySelectorAll('#chColors .color-swatch').forEach(sw => {
+      sw.classList.toggle('active', sw.dataset.color === ch.color);
+    });
+  }
+
+  _renderCrosshairPreview() {
+    const canvas = document.getElementById('crosshairPreview');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = 200;
+    const h = 120;
+
+    // Background grid
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 20) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = 0; y < h; y += 20) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    // Draw crosshair
+    const ch = this.stats.getSettings().crosshair;
+    Renderer.drawCrosshair(ctx, w / 2, h / 2, ch);
+  }
+
+  _applySettings() {
+    const theme = this.stats.getSettings().theme;
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+
+  _updateCursor() {
+    // Hide OS cursor during gameplay so only the canvas-drawn crosshair is visible
+    document.body.style.cursor = (this.state === 'playing' || this.state === 'paused') ? 'none' : '';
+  }
+
+  _populateStats() {
+    const grid = document.getElementById('statsGrid');
+    if (!grid) return;
+
+    const modes = [
+      { key: 'gridshot', name: 'Gridshot' },
+      { key: 'tracking', name: 'Tracking' },
+      { key: 'reflex', name: 'Reflex' },
+      { key: 'deathmatch', name: 'Deathmatch' }
+    ];
+
+    grid.innerHTML = '';
+
+    for (const m of modes) {
+      const st = this.stats.getStats(m.key);
+      const acc = st.totalShots > 0 ? Math.round((st.totalHits / st.totalShots) * 100) + '%' : '—';
+      const avgRt = st.reactionTimes.length > 0
+        ? (st.reactionTimes.reduce((a, b) => a + b, 0) / st.reactionTimes.length * 1000).toFixed(0) + 'ms'
+        : '—';
+      const hs = st.totalHits > 0 ? Math.round((st.headshots / st.totalHits) * 100) + '%' : '—';
+
+      grid.innerHTML += `
+        <div class="stat-card">
+          <h3>${m.name}</h3>
+          <div class="stat-row">
+            <span class="stat-label">High Score</span>
+            <span class="stat-value">${st.highScore}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Accuracy</span>
+            <span class="stat-value">${acc}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Avg Reaction</span>
+            <span class="stat-value">${avgRt}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Headshot %</span>
+            <span class="stat-value">${hs}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Sessions</span>
+            <span class="stat-value">${st.sessions}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Best Streak</span>
+            <span class="stat-value">${st.maxStreak}</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+}
+
+/* ============================================
+   INIT
+   ============================================ */
+window.addEventListener('DOMContentLoaded', () => {
+  const game = new Game();
+  game.init();
+  window.__game = game; // For debugging
+});
+</script>
+</body>
+</html>
