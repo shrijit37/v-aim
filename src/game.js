@@ -506,7 +506,7 @@ export class Game {
           if (active && active.id !== 'menu-main') { this.showMenu('menu-main'); return; }
         }
       }
-      if (key === kb.restart || key.toLowerCase() === 'r') {
+      if (key === kb.restart) {
         if (this.state === 'playing' || this.state === 'paused') {
           if (this.mode) { this.startGame(this.mode.name); return; }
         }
@@ -524,6 +524,7 @@ export class Game {
         this.weapon.keyUp(key);
       }
     });
+    let resizeTimeout;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
