@@ -1,3 +1,6 @@
 graphify-out/
 .bug-hunter/
 .vercel
+dist/
+node_modules/
+.DS_Store

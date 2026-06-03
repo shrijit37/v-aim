@@ -1,0 +1,47 @@
+name: Validate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Check HTML validity
+        uses: Cyb3r-Jak3/html5validator-action@v7.2
+        with:
+          root: .
+          skip: graphify-out,.bug-hunter,.vercel
+          log_level: DEBUG
+
+      - name: Check CSS with stylelint
+        run: npx stylelint "*.css" --allow-empty-input
+
+      - name: Security scan (no-deps)
+        run: |
+          # Check for potential XSS in HTML attributes
+          if grep -rn "innerHTML\s*=" index.html src/ 2>/dev/null | grep -v "//.*innerHTML" | grep -v "scoreDetails.innerHTML"; then
+            echo "WARNING: Found potential innerHTML usage"
+          fi
+          # Check for exposed secrets in source
+          if grep -rn "(api_key|apiKey|secret|token|password)\s*[:=]\s*['\"]" . --include="*.html" --include="*.js" --include="*.json" 2>/dev/null | grep -v node_modules | grep -v '.github/' | grep -v 'secrets.'; then
+            echo "WARNING: Possible secret exposure"
+          fi
+          echo "Security scan complete"
