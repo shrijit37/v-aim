@@ -897,7 +897,6 @@ export class Game {
             this._syncCrosshairUI();
             this._renderCrosshairPreview();
             this._populateStats();
-            this._initSettingsUI();
             alert('Data imported successfully!');
           } else {
             alert('Invalid data file.');
