@@ -43,8 +43,12 @@ export class WeaponManager {
     this._recoveryDelay = 0.15; // seconds before recoil starts recovering
     this._recoveryRate = 8.0;   // recovery speed (units/s)
     this._lastShotTime = 0;
-  }
 
+    // ADS state
+    this.ads = false;
+    this.adsProgress = 0; // 0=hip, 1=ADS, interpolated
+    this._adsToggleCooldown = 0;
+  }
 
   get weapon() { return this._weapon; }
 
@@ -65,7 +69,7 @@ export class WeaponManager {
     this.resetRecoil();
   }
 
-  /** Fully reset weapon for a new round: full ammo, cancel reload, reset recoil */
+  /** Fully reset weapon for a new round: full ammo, cancel reload, reset recoil, clear ADS */
   resetForRound() {
     this.reloading = false;
     this._reloadTimer = 0;
@@ -73,6 +77,7 @@ export class WeaponManager {
     this._ammoById[this.currentId] = this.ammo;
     this.resetRecoil();
     this.shotsFired = 0;
+    this.clearADS();
   }
 
   resetRecoil() {
@@ -131,7 +136,7 @@ export class WeaponManager {
 
     const isFirstShot = this.recoilIndex <= 1;
     const firstShotBonus = isFirstShot ? this._weapon.firstShotInaccuracy : 0;
-    this.spread = baseSpread + (this.recoilIndex * 0.05) + firstShotBonus;
+    this.spread = (baseSpread + (this.recoilIndex * 0.05) + firstShotBonus) * this.getADSMultiplier();
 
     const angle = Math.random() * Math.PI * 2;
     const spreadAmount = (Math.random() * this.spread) * 0.5;
@@ -178,6 +183,11 @@ export class WeaponManager {
    */
   update(dt) {
     const now = performance.now() / 1000;
+    if (this._adsToggleCooldown > 0) this._adsToggleCooldown -= dt;
+
+    // ADS progress interpolation runs every frame (even during reload) to keep HUD/viewmodel in sync
+    const adsTarget = this.ads ? 1 : 0;
+    this.adsProgress += (adsTarget - this.adsProgress) * Math.min(1, dt * 10);
 
     // Reload timer
     if (this.reloading) {
@@ -221,13 +231,15 @@ export class WeaponManager {
     // Smooth recoil
     this.recoilSmooth.x += (this.recoilOffset.x - this.recoilSmooth.x) * Math.min(1, dt * 15);
     this.recoilSmooth.y += (this.recoilOffset.y - this.recoilSmooth.y) * Math.min(1, dt * 15);
+
   }
 
   reload() {
-    if (this.reloading || this.ammo === this._weapon.magSize) return;
+    if (this.reloading || this.ammo === this._weapon.magSize) return false;
     this.reloading = true;
     this._reloadTimer = this._weapon.reloadTime;
     this.resetRecoil();
+    return true;
   }
 
 
@@ -245,6 +257,41 @@ export class WeaponManager {
       shotgun: 0.7
     };
     return typeMult[this._weapon.type] || 1.0;
+  }
+
+  setADS(enabled) {
+    this.ads = Boolean(enabled);
+    if (!enabled) {
+      this.adsProgress = 0;
+      this._adsToggleCooldown = 0;
+    }
+  }
+
+  clearADS() {
+    this.ads = false;
+    this.adsProgress = 0;
+    this._adsToggleCooldown = 0;
+  }
+
+  toggleADS() {
+    if (this._adsToggleCooldown > 0) return;
+    this.setADS(!this.ads);
+    this._adsToggleCooldown = 0.2; // prevent rapid toggling
+  }
+
+  isADS() {
+    return this.ads;
+  }
+
+  getADSMultiplier() {
+    // ADS improves accuracy: reduces spread by 40%
+    return this.ads ? 0.6 : 1.0;
+  }
+
+  getMovementSpeedMultiplier() {
+    // ADS slows movement by 50%
+    if (!this.ads) return 1.0;
+    return this._weapon.type === 'sniper' ? 0.3 : 0.5;
   }
 }
 
