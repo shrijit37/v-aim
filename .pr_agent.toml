@@ -1,5 +1,0 @@
-[pr_reviewer]
-extra_instructions = """
-- Do NOT flag "Missing weapon modules" for `src/game.js`. The files `src/weapon-manager.js` and `src/weapons.js` exist in the repository at `src/weapon-manager.js` and `src/weapons.js`.
-- The weapon modules are committed and will be available at runtime.
-"""
