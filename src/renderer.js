@@ -1,4 +1,5 @@
 'use strict';
+import { getWeapon } from './weapons.js';
 
 export class Renderer {
   static clear(ctx, w, h) {
@@ -58,6 +59,17 @@ export class Renderer {
     const { size, thickness, gap, color, dot, outline } = cfg;
     const armLen = size * thickness;
     const offset = gap + thickness;
+    // Bloom circle shows current weapon inaccuracy
+    if (cfg.bloom && cfg.bloom > 0) {
+      const bloomRadius = cfg.bloom * 2;
+      ctx.beginPath();
+      ctx.arc(x, y, bloomRadius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 100, 100, 0.15)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     const drawArms = (clr, w) => {
       ctx.strokeStyle = clr;
@@ -95,43 +107,40 @@ export class Renderer {
       ctx.fillStyle = color;
       ctx.fillRect(x - thickness/2, y - thickness/2, thickness, thickness);
     }
+
   }
 
-  static drawWeaponSilhouette(ctx, w, h) {
-    ctx.save();
-    ctx.globalAlpha = 0.1;
-    ctx.strokeStyle = '#ece8e1';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    const cx = w / 2;
-    const by = h - 60;
-    const sw = 120;
-    const sh = 200;
-
+  static drawRecoilIndicator(ctx, x, y, spread) {
+    const halfSize = Math.max(2, spread * 10);
     ctx.beginPath();
-    ctx.moveTo(cx - 4, by - sh);
-    ctx.lineTo(cx + 4, by - sh);
-    ctx.lineTo(cx + 4, by - sh * 0.7);
-    ctx.lineTo(cx + 10, by - sh * 0.65);
-    ctx.lineTo(cx + 10, by - sh * 0.55);
-    ctx.lineTo(cx + 6, by - sh * 0.5);
-    ctx.lineTo(cx + 6, by - sh * 0.25);
-    ctx.lineTo(cx + 12, by - sh * 0.2);
-    ctx.lineTo(cx + 12, by);
-    ctx.lineTo(cx + 8, by + 5);
-    ctx.lineTo(cx - 8, by + 5);
-    ctx.lineTo(cx - 12, by);
-    ctx.lineTo(cx - 12, by - sh * 0.2);
-    ctx.lineTo(cx - 6, by - sh * 0.25);
-    ctx.lineTo(cx - 6, by - sh * 0.5);
-    ctx.moveTo(cx - 6, by - sh * 0.5);
-    ctx.lineTo(cx - 10, by - sh * 0.55);
-    ctx.lineTo(cx - 10, by - sh * 0.65);
-    ctx.lineTo(cx - 4, by - sh * 0.7);
-    ctx.lineTo(cx - 4, by - sh);
+    ctx.moveTo(x, y - halfSize);
+    ctx.lineTo(x + halfSize, y);
+    ctx.lineTo(x, y + halfSize);
+    ctx.lineTo(x - halfSize, y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+  }
+
+  static drawWeaponSilhouette(ctx, w, h, weaponId) {
+    ctx.save();
+    const wp = getWeapon(weaponId);
+    const name = (wp ? wp.name : weaponId).toUpperCase();
+    const type = wp ? wp.type.toUpperCase() : '';
+
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.font = '14px "Inter", system-ui, sans-serif';
+    ctx.fillText(name, w - 24, h - 44);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.font = '11px "Inter", system-ui, sans-serif';
+    ctx.fillText(type, w - 24, h - 28);
 
     ctx.restore();
   }

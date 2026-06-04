@@ -52,8 +52,56 @@ export class AudioManager {
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     return buf;
   }
+  playWeaponFire(weaponId) {
+    if (!this._enabled) return;
+    this._init();
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
 
-  play(name) {
+    // Weapon-specific gunshot based on weaponId
+    let gain = 0.3, lowpass = 3000, noiseLen = 0.08, tail = 0.15;
+    // Check known weapons for audio config
+    try {
+      const w = { // inline to avoid import
+        vandal: { gain: 0.35, lowpass: 3200, noiseLen: 0.09, tail: 0.18 },
+        phantom: { gain: 0.3, lowpass: 3500, noiseLen: 0.08, tail: 0.15 },
+        sheriff: { gain: 0.45, lowpass: 2800, noiseLen: 0.1, tail: 0.22 },
+        ghost: { gain: 0.2, lowpass: 4000, noiseLen: 0.06, tail: 0.1 },
+        spectre: { gain: 0.28, lowpass: 3600, noiseLen: 0.07, tail: 0.13 },
+        operator: { gain: 0.55, lowpass: 2200, noiseLen: 0.15, tail: 0.35 },
+        judge: { gain: 0.5, lowpass: 2000, noiseLen: 0.14, tail: 0.3 },
+        guardian: { gain: 0.4, lowpass: 3000, noiseLen: 0.1, tail: 0.2 }
+      }[weaponId];
+      if (w) { gain = w.gain; lowpass = w.lowpass; noiseLen = w.noiseLen; tail = w.tail; }
+    } catch(e) {}
+
+    const src = ctx.createBufferSource();
+    src.buffer = this._noise(noiseLen);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = lowpass;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(gain, now + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.001, now + noiseLen);
+    src.connect(lp).connect(g).connect(this.master);
+    src.start(now);
+    src.stop(now + noiseLen);
+
+    // Add reverb tail
+    const revBuf = this._reverb(tail, 0.04);
+    const revSrc = ctx.createBufferSource();
+    revSrc.buffer = revBuf;
+    const revG = ctx.createGain();
+    revG.gain.setValueAtTime(0, now);
+    revG.gain.linearRampToValueAtTime(gain * 0.25, now + 0.005);
+    revG.gain.exponentialRampToValueAtTime(0.001, now + tail);
+    revSrc.connect(revG).connect(this.master);
+    revSrc.start(now);
+    revSrc.stop(now + tail);
+  }
+
+   play(name) {
     if (!this._enabled) return;
     this._init();
     const ctx = this.ctx;
@@ -162,6 +210,21 @@ export class AudioManager {
         osc.connect(g).connect(this.master);
         osc.start(now);
         osc.stop(now + 0.08);
+        break;
+      }
+      case 'empty': {
+        // Dry click — very short metallic tick
+        const src = ctx.createBufferSource();
+        src.buffer = this._noise(0.02);
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 8000;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.04, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        src.connect(hp).connect(g).connect(this.master);
+        src.start(now);
+        src.stop(now + 0.03);
         break;
       }
       case 'menuClick': {
