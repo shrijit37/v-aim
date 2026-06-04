@@ -227,7 +227,7 @@ export class Game {
       Renderer.drawCrosshair(ctx, cx, cy, chWithBloom);
       if (wm.recoilIndex > 1) {
         const rx = cx + wm.recoilSmooth.x * 1.5;
-        const ry = cy + (wm.recoilSmooth.y) * 1.5;
+        const ry = cy - (wm.recoilSmooth.y) * 1.5;
         Renderer.drawRecoilIndicator(ctx, rx, ry, wm.getCurrentSpread());
       }
       Renderer.drawWeaponSilhouette(ctx, w, h, wm.currentId);
@@ -367,8 +367,8 @@ export class Game {
           }
           return;
         }
-        const aimX = pos.x + shot.recoilOffset.x * 1.2;
-        const aimY = pos.y + (shot.recoilOffset.y) * 1.2;
+        const aimX = pos.x + (shot.recoilOffset.x + shot.spreadOffset.x) * 1.2;
+        const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
         const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
           if (r.headshot) this.audio.play('headshot');
@@ -408,8 +408,8 @@ export class Game {
           }
           return;
         }
-        const aimX = pos.x + shot.recoilOffset.x * 1.2;
-        const aimY = pos.y + (shot.recoilOffset.y) * 1.2;
+        const aimX = pos.x + (shot.recoilOffset.x + shot.spreadOffset.x) * 1.2;
+        const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
         const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
           if (r.headshot) this.audio.play('headshot');

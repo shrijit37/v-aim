@@ -5,6 +5,7 @@ export class AudioManager {
     this.ctx = null;
     this.master = null;
     this._enabled = true;
+    this._reverbCache = {};
   }
 
   _init() {
@@ -87,9 +88,13 @@ export class AudioManager {
     src.connect(lp).connect(g).connect(this.master);
     src.start(now);
     src.stop(now + noiseLen);
-
-    // Add reverb tail
-    const revBuf = this._reverb(tail, 0.04);
+    // Add reverb tail (cached — reuse buffers for same tail duration)
+    const cacheKey = tail.toFixed(3);
+    let revBuf = this._reverbCache[cacheKey];
+    if (!revBuf) {
+      revBuf = this._reverb(tail, 0.04);
+      this._reverbCache[cacheKey] = revBuf;
+    }
     const revSrc = ctx.createBufferSource();
     revSrc.buffer = revBuf;
     const revG = ctx.createGain();

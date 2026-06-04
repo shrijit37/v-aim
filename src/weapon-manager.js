@@ -48,14 +48,16 @@ export class WeaponManager {
   get weapon() { return this._weapon; }
 
   selectWeapon(id) {
-    if (this.reloading) return; // cancel reload on swap
     const w = getWeapon(id);
     if (!w) return;
+    if (this.reloading) {
+      // Cancel in-progress reload when switching weapons or resetting for new round
+      this.reloading = false;
+      this._reloadTimer = 0;
+    }
     this.currentId = id;
     this._weapon = w;
     this.ammo = w.magSize;
-    this.reloading = false;
-    this._reloadTimer = 0;
     this.resetRecoil();
   }
 
