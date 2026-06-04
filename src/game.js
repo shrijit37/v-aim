@@ -153,8 +153,8 @@ export class Game {
       case 'strafetrack': this.mode = new StrafetrackMode(this); break;
     }
 
-    // Reset weapon for new round
-    this.weapon.selectWeapon(this.weapon.currentId);
+    // Fully reset weapon for new round (full ammo, cancel reload, reset recoil)
+    this.weapon.resetForRound();
 
     this.mode.start();
     this.state = 'playing'; this._updateCursor();
@@ -1041,7 +1041,8 @@ export class Game {
             this._syncCrosshairUI();
             this._renderCrosshairPreview();
             this._populateStats();
-            alert('Invalid data file.');
+            alert('Data imported successfully.');
+            return;
           }
         } catch { alert('Failed to parse file.'); }
       };

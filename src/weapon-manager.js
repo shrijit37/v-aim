@@ -50,18 +50,29 @@ export class WeaponManager {
 
   selectWeapon(id) {
     const w = getWeapon(id);
-    if (!w) return;
+    // getWeapon always returns a weapon (falls back to DEFAULT_WEAPON),
+    // so normalize currentId to the resolved weapon's actual id
     // Persist current weapon's ammo before switching
     this._ammoById[this.currentId] = this.ammo;
     if (this.reloading) {
-      // Cancel in-progress reload when switching weapons or resetting for new round
+      // Cancel in-progress reload when switching weapons
       this.reloading = false;
       this._reloadTimer = 0;
     }
-    this.currentId = id;
+    this.currentId = w.id;
     this._weapon = w;
-    this.ammo = this._ammoById[id] ?? w.magSize;
+    this.ammo = this._ammoById[w.id] ?? w.magSize;
     this.resetRecoil();
+  }
+
+  /** Fully reset weapon for a new round: full ammo, cancel reload, reset recoil */
+  resetForRound() {
+    this.reloading = false;
+    this._reloadTimer = 0;
+    this.ammo = this._weapon.magSize;
+    this._ammoById[this.currentId] = this.ammo;
+    this.resetRecoil();
+    this.shotsFired = 0;
   }
 
   resetRecoil() {
