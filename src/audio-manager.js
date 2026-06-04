@@ -1,5 +1,7 @@
 'use strict';
 
+import { WEAPONS } from './weapons.js';
+
 export class AudioManager {
   constructor() {
     this.ctx = null;
@@ -61,20 +63,13 @@ export class AudioManager {
 
     // Weapon-specific gunshot based on weaponId
     let gain = 0.3, lowpass = 3000, noiseLen = 0.08, tail = 0.15;
-    // Check known weapons for audio config
-    try {
-      const w = { // inline to avoid import
-        vandal: { gain: 0.35, lowpass: 3200, noiseLen: 0.09, tail: 0.18 },
-        phantom: { gain: 0.3, lowpass: 3500, noiseLen: 0.08, tail: 0.15 },
-        sheriff: { gain: 0.45, lowpass: 2800, noiseLen: 0.1, tail: 0.22 },
-        ghost: { gain: 0.2, lowpass: 4000, noiseLen: 0.06, tail: 0.1 },
-        spectre: { gain: 0.28, lowpass: 3600, noiseLen: 0.07, tail: 0.13 },
-        operator: { gain: 0.55, lowpass: 2200, noiseLen: 0.15, tail: 0.35 },
-        judge: { gain: 0.5, lowpass: 2000, noiseLen: 0.14, tail: 0.3 },
-        guardian: { gain: 0.4, lowpass: 3000, noiseLen: 0.1, tail: 0.2 }
-      }[weaponId];
-      if (w) { gain = w.gain; lowpass = w.lowpass; noiseLen = w.noiseLen; tail = w.tail; }
-    } catch(e) {}
+    const weapon = WEAPONS[weaponId];
+    if (weapon?.audio) {
+      gain = weapon.audio.gain;
+      lowpass = weapon.audio.lowpass;
+      noiseLen = weapon.audio.noiseLen;
+      tail = weapon.audio.tail;
+    }
 
     const src = ctx.createBufferSource();
     src.buffer = this._noise(noiseLen);

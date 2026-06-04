@@ -14,7 +14,7 @@ export class WeaponManager {
     this.reserveAmmo = 0; // not used in aim trainer — infinite
     this._weapon = getWeapon(this.currentId);
     this.ammo = this._weapon.magSize;
-
+    this._ammoById = { [this.currentId]: this._weapon.magSize };
     // Fire rate gating
     this._lastFireTime = 0;
     this._heldKeys = new Set();
@@ -50,6 +50,8 @@ export class WeaponManager {
   selectWeapon(id) {
     const w = getWeapon(id);
     if (!w) return;
+    // Persist current weapon's ammo before switching
+    this._ammoById[this.currentId] = this.ammo;
     if (this.reloading) {
       // Cancel in-progress reload when switching weapons or resetting for new round
       this.reloading = false;
@@ -57,7 +59,7 @@ export class WeaponManager {
     }
     this.currentId = id;
     this._weapon = w;
-    this.ammo = w.magSize;
+    this.ammo = this._ammoById[id] ?? w.magSize;
     this.resetRecoil();
   }
 
@@ -87,6 +89,7 @@ export class WeaponManager {
     this._lastFireTime = now;
     this._lastShotTime = now;
     this.ammo--;
+    this._ammoById[this.currentId] = this.ammo;
     this.shotsFired++;
 
     // ---- Recoil ----
@@ -169,6 +172,7 @@ export class WeaponManager {
       this._reloadTimer -= dt;
       if (this._reloadTimer <= 0) {
         this.ammo = this._weapon.magSize;
+        this._ammoById[this.currentId] = this.ammo;
         this.reloading = false;
         this._reloadTimer = 0;
         this.resetRecoil();

@@ -82,10 +82,11 @@ export class PeekPracticeMode {
     this.target.edge = edge;
     this.target.alive = true;
     this.target.hasReached = false;
-
-    this.target.peeking = true;
+    this.target.peekDist = 80 + Math.random() * 40;
     this.target.peekProgress = 0;
     this.target.slideOut = false;
+
+    this.target.peeking = true;
     this.target.speed = 2.0 + this.kills * 0.08;
 
     // Peek duration decreases with kills
@@ -102,7 +103,7 @@ export class PeekPracticeMode {
     const speed = this.target.speed * 200 * dt;
     const w = this.game.width;
     const h = this.game.height;
-    const peekDist = 80 + Math.random() * 40;
+    const peekDist = this.target.peekDist;
 
     if (!this.target.slideOut && !this.target.hasReached) {
       // Sliding in
