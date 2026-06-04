@@ -45,6 +45,7 @@ export class WeaponManager {
     this._lastShotTime = 0;
   }
 
+
   get weapon() { return this._weapon; }
 
   selectWeapon(id) {
