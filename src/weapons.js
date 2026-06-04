@@ -327,3 +327,4 @@ export function getWeaponDamage(weapon, hitType, distance = 30) {
   if (hitType === 'leg') return dmg.leg;
   return dmg.body;
 }
+

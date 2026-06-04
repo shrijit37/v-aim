@@ -229,3 +229,4 @@ export class WeaponManager {
     return typeMult[this._weapon.type] || 1.0;
   }
 }
+
