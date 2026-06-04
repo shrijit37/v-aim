@@ -191,6 +191,7 @@ export class Game {
 
     this.weapon.update(dt);
 
+    this.viewmodel.setADS(this.weapon.adsProgress);
     this.viewmodel.update(dt);
     this.mode.update(dt);
     this.effects.update(dt);
@@ -236,8 +237,10 @@ export class Game {
       }
       // Draw the viewmodel weapon (replaces old drawWeaponSilhouette)
       this.viewmodel.render(ctx, w, h);
-      // ADS scope overlay (sniper-style)
-      Renderer.drawADSScope(ctx, w, h, wm.adsProgress);
+      // ADS scope overlay (sniper-style) — only for sniper-type weapons
+      if (wm.weapon.type === 'sniper') {
+        Renderer.drawADSScope(ctx, w, h, wm.adsProgress);
+      }
     }
   }
 
@@ -442,8 +445,8 @@ export class Game {
           this.viewmodel.onFire();
           // Auto-reload when empty
           if (this.weapon.ammo === 0 && !this.weapon.reloading) {
-            this.weapon.reload();
-            this.viewmodel.onReload();
+            const started = this.weapon.reload();
+            if (started) this.viewmodel.onReload();
           }
         }
       }
@@ -489,8 +492,8 @@ export class Game {
           this.viewmodel.onFire();
           this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
           if (this.weapon.ammo === 0 && !this.weapon.reloading) {
-            this.weapon.reload();
-            this.viewmodel.onReload();
+            const started = this.weapon.reload();
+            if (started) this.viewmodel.onReload();
           }
         }
       }
@@ -561,8 +564,8 @@ export class Game {
       }
       // Reload
       if (key.toLowerCase() === 'r' && this.state === 'playing') {
-        this.weapon.reload();
-        this.viewmodel.onReload();
+        const started = this.weapon.reload();
+        if (started) this.viewmodel.onReload();
         return;
       }
       // Movement (affects accuracy)

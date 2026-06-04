@@ -69,7 +69,7 @@ export class WeaponManager {
     this.resetRecoil();
   }
 
-  /** Fully reset weapon for a new round: full ammo, cancel reload, reset recoil */
+  /** Fully reset weapon for a new round: full ammo, cancel reload, reset recoil, clear ADS */
   resetForRound() {
     this.reloading = false;
     this._reloadTimer = 0;
@@ -77,6 +77,7 @@ export class WeaponManager {
     this._ammoById[this.currentId] = this.ammo;
     this.resetRecoil();
     this.shotsFired = 0;
+    this.clearADS();
   }
 
   resetRecoil() {
@@ -233,10 +234,11 @@ export class WeaponManager {
   }
 
   reload() {
-    if (this.reloading || this.ammo === this._weapon.magSize) return;
+    if (this.reloading || this.ammo === this._weapon.magSize) return false;
     this.reloading = true;
     this._reloadTimer = this._weapon.reloadTime;
     this.resetRecoil();
+    return true;
   }
 
 
@@ -256,9 +258,23 @@ export class WeaponManager {
     return typeMult[this._weapon.type] || 1.0;
   }
 
+  setADS(enabled) {
+    this.ads = Boolean(enabled);
+    if (!enabled) {
+      this.adsProgress = 0;
+      this._adsToggleCooldown = 0;
+    }
+  }
+
+  clearADS() {
+    this.ads = false;
+    this.adsProgress = 0;
+    this._adsToggleCooldown = 0;
+  }
+
   toggleADS() {
     if (this._adsToggleCooldown > 0) return;
-    this.ads = !this.ads;
+    this.setADS(!this.ads);
     this._adsToggleCooldown = 0.2; // prevent rapid toggling
   }
 

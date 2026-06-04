@@ -17,6 +17,7 @@ const WEAPON_VIEW = {
     fireKickY: 8,
     fireReturn: 0.12,  // seconds to return
     adsFov: 0.75,      // fov multiplier when ADS
+    muzzleOffset: { x: 180, y: -22 },
     draw: drawRifle,
   },
   smg: {
@@ -28,6 +29,7 @@ const WEAPON_VIEW = {
     fireKickY: 6,
     fireReturn: 0.10,
     adsFov: 0.80,
+    muzzleOffset: { x: 130, y: -18 },
     draw: drawSMG,
   },
   pistol: {
@@ -39,6 +41,7 @@ const WEAPON_VIEW = {
     fireKickY: 10,
     fireReturn: 0.15,
     adsFov: 0.75,
+    muzzleOffset: { x: 120, y: -10 },
     draw: drawPistol,
   },
   sniper: {
@@ -50,6 +53,7 @@ const WEAPON_VIEW = {
     fireKickY: 14,
     fireReturn: 0.20,
     adsFov: 0.50,
+    muzzleOffset: { x: 280, y: -14 },
     draw: drawSniper,
   },
   shotgun: {
@@ -61,6 +65,7 @@ const WEAPON_VIEW = {
     fireKickY: 7,
     fireReturn: 0.12,
     adsFov: 0.78,
+    muzzleOffset: { x: 160, y: -22 },
     draw: drawShotgun,
   },
 };
@@ -218,9 +223,15 @@ export class ViewModel {
 
     ctx.restore();
 
-    // Store muzzle position for effects (tip of the barrel)
-    this.muzzleX = cx + 60 * this.scale;
-    this.muzzleY = cy - 20 * this.scale;
+    // Store muzzle position for effects (tip of the barrel) — weapon-specific, rotation-aware
+    const muzzleCfg = c.muzzleOffset || { x: 60, y: -20 };
+    const s = Math.min(w, h) / 800;
+    const localX = muzzleCfg.x * s * this.scale;
+    const localY = muzzleCfg.y * s * this.scale;
+    const cos = Math.cos(this.rot);
+    const sin = Math.sin(this.rot);
+    this.muzzleX = cx + (localX * cos - localY * sin);
+    this.muzzleY = cy + (localX * sin + localY * cos);
   }
 }
 

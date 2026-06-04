@@ -1207,6 +1207,12 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   }
   .menu-screen { transform: none; }
   #hud { transform: none; }
+  /* Kill-feed items must remain visible — override the universal animation reset */
+  .hud-killfeed-item {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ============================================
