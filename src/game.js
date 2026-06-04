@@ -4,6 +4,8 @@ import { AudioManager } from './audio-manager.js';
 import { StatsManager } from './stats-manager.js';
 import { EffectManager } from './effect-manager.js';
 import { Renderer } from './renderer.js';
+import { WeaponManager } from './weapon-manager.js';
+import { WEAPONS, WEAPON_LIST, DEFAULT_WEAPON } from './weapons.js';
 import { GridshotMode } from './modes/gridshot.js';
 import { TrackingMode } from './modes/tracking.js';
 import { ReflexMode } from './modes/reflex.js';
@@ -39,6 +41,7 @@ export class Game {
     this._fpsTime = 0;
     this._fps = 0;
     this._fpsDisplay = null;
+    this.weapon = new WeaponManager(this);
     // Session history
     this._sessionHistory = [];
   }
@@ -150,6 +153,9 @@ export class Game {
       case 'strafetrack': this.mode = new StrafetrackMode(this); break;
     }
 
+    // Fully reset weapon for new round (full ammo, cancel reload, reset recoil)
+    this.weapon.resetForRound();
+
     this.mode.start();
     this.state = 'playing'; this._updateCursor();
     document.getElementById('hud').classList.add('visible');
@@ -180,6 +186,8 @@ export class Game {
       }
     }
 
+    this.weapon.update(dt);
+
     this.mode.update(dt);
     this.effects.update(dt);
     this._render();
@@ -208,8 +216,21 @@ export class Game {
 
     if (this.state === 'playing' || this.state === 'paused') {
       const ch = this.stats.getSettings().crosshair;
-      Renderer.drawCrosshair(ctx, this.mouseX, this.mouseY, ch);
-      Renderer.drawWeaponSilhouette(ctx, w, h);
+      const wm = this.weapon;
+      // Crosshair with recoil offset (gun moves up during spray)
+      const cx = this.mouseX;
+      const cy = this.mouseY;
+      // Draw crosshair bloom based on current spread
+      const bloom = wm.getCurrentSpread() * 3;
+      // Pass bloom info to renderer through a modified crosshair config
+      const chWithBloom = { ...ch, bloom };
+      Renderer.drawCrosshair(ctx, cx, cy, chWithBloom);
+      if (wm.recoilIndex > 1) {
+        const rx = cx + wm.recoilSmooth.x * 1.5;
+        const ry = cy - (wm.recoilSmooth.y) * 1.5;
+        Renderer.drawRecoilIndicator(ctx, rx, ry, wm.getCurrentSpread());
+      }
+      Renderer.drawWeaponSilhouette(ctx, w, h, wm.currentId);
     }
   }
 
@@ -236,6 +257,19 @@ export class Game {
 
     document.getElementById('hudHeadshots').textContent = 'HEADSHOTS: ' + (this.mode.headshots || 0);
     document.getElementById('hudStreak').textContent = 'STREAK: ' + (this.mode.streak || 0);
+
+    // Weapon HUD
+    const wp = this.weapon;
+    const wpNameEl = document.getElementById('hudWeaponName');
+    const wpAmmoEl = document.getElementById('hudWeaponAmmo');
+    if (wpNameEl) wpNameEl.textContent = wp.weapon.name.toUpperCase();
+    if (wpAmmoEl) {
+      wpAmmoEl.textContent = wp.ammo + ' / ' + wp.weapon.magSize;
+      wpAmmoEl.classList.toggle('low-ammo', wp.ammo <= wp.weapon.magSize * 0.25);
+    }
+    // Reload indicator
+    const reloadEl = document.getElementById('hudReloading');
+    if (reloadEl) reloadEl.classList.toggle('visible', wp.reloading);
   }
 
   _endRound() {
@@ -324,11 +358,30 @@ export class Game {
       this._unlockAudio();
       const pos = this._getPos(e);
       if (this.state === 'playing' && this.mode) {
-        const r = this.mode.onMouseDown(pos.x, pos.y);
+        // Fire weapon (checks ammo, fire rate, reload)
+        const shot = this.weapon.fire();
+        if (!shot) {
+          // Weapon blocked — play empty click if ammo empty, else ignore (fire rate cap)
+          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+            this.audio.play('empty');
+          }
+          return;
+        }
+        const aimX = pos.x + (shot.recoilOffset.x + shot.spreadOffset.x) * 1.2;
+        const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
+        const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
           if (r.headshot) this.audio.play('headshot');
           else if (r.hit) this.audio.play('hit');
           else this.audio.play('miss');
+          // Weapon-specific audio overlay
+          this.audio.playWeaponFire(this.weapon.currentId);
+          // Muzzle flash
+          this.effects.addMuzzleFlash(pos.x, pos.y);
+          // Auto-reload when empty
+          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+            this.weapon.reload();
+          }
         }
       }
     });
@@ -348,11 +401,25 @@ export class Game {
       this.mouseX = pos.x;
       this.mouseY = pos.y;
       if (this.state === 'playing' && this.mode) {
-        const r = this.mode.onMouseDown(pos.x, pos.y);
+        const shot = this.weapon.fire();
+        if (!shot) {
+          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+            this.audio.play('empty');
+          }
+          return;
+        }
+        const aimX = pos.x + (shot.recoilOffset.x + shot.spreadOffset.x) * 1.2;
+        const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
+        const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
           if (r.headshot) this.audio.play('headshot');
           else if (r.hit) this.audio.play('hit');
           else this.audio.play('miss');
+          this.audio.playWeaponFire(this.weapon.currentId);
+          this.effects.addMuzzleFlash(pos.x, pos.y);
+          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+            this.weapon.reload();
+          }
         }
       }
     }, { passive: false });
@@ -394,8 +461,40 @@ export class Game {
         case kb.multitarget: if (this.state === 'menu') { this.startGame('multitarget'); return; } break;
         case '9':
         case kb.strafetrack: if (this.state === 'menu') { this.startGame('strafetrack'); return; } break;
-      }
+    }
 
+    // Weapon controls (playing state only)
+    if (this.state === 'playing' || this.state === 'paused') {
+      // Weapon switching
+      const weaponKeys = WEAPON_LIST;
+      const numIdx = parseInt(key) - 1;
+      if (numIdx >= 0 && numIdx < weaponKeys.length) {
+        this.weapon.selectWeapon(weaponKeys[numIdx]);
+        return;
+      }
+      if (key.toLowerCase() === 'q') {
+        const idx = weaponKeys.indexOf(this.weapon.currentId);
+        const prev = (idx - 1 + weaponKeys.length) % weaponKeys.length;
+        this.weapon.selectWeapon(weaponKeys[prev]);
+        return;
+      }
+      if (key.toLowerCase() === 'e') {
+        const idx = weaponKeys.indexOf(this.weapon.currentId);
+        const next = (idx + 1) % weaponKeys.length;
+        this.weapon.selectWeapon(weaponKeys[next]);
+        return;
+      }
+      // Reload
+      if (key.toLowerCase() === 'r' && this.state === 'playing') {
+        this.weapon.reload();
+        return;
+      }
+      // Movement (affects accuracy)
+      if (key === 'w' || key === 'W') { this.weapon.keyDown(key); return; }
+      if (key === 's' || key === 'S') { this.weapon.keyDown(key); return; }
+      if (key === 'a' || key === 'A') { this.weapon.keyDown(key); return; }
+      if (key === 'd' || key === 'D') { this.weapon.keyDown(key); return; }
+    }
       if (key === kb.play || key === 'Enter') {
         if (this.state === 'menu') { this.startGame('gridshot'); return; }
       }
@@ -407,7 +506,7 @@ export class Game {
           if (active && active.id !== 'menu-main') { this.showMenu('menu-main'); return; }
         }
       }
-      if (key === kb.restart || key.toLowerCase() === 'r') {
+      if (key === kb.restart) {
         if (this.state === 'playing' || this.state === 'paused') {
           if (this.mode) { this.startGame(this.mode.name); return; }
         }
@@ -417,6 +516,14 @@ export class Game {
       }
     });
 
+    // Keyup: release movement keys via weapon keyUp
+    document.addEventListener('keyup', (e) => {
+      const key = e.key;
+      if (key === 'w' || key === 'W' || key === 's' || key === 'S' ||
+          key === 'a' || key === 'A' || key === 'd' || key === 'D') {
+        this.weapon.keyUp(key);
+      }
+    });
     let resizeTimeout;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimeout);
@@ -485,6 +592,8 @@ export class Game {
      SETTINGS UI
      ========================================== */
   _initSettingsUI() {
+    if (this._settingsReady) return;
+    this._settingsReady = true;
     const s = this.stats.getSettings();
     const ch = s.crosshair;
     // Keybind display
@@ -628,6 +737,40 @@ export class Game {
     document.querySelectorAll('#chColors .color-swatch').forEach(sw => {
       sw.classList.toggle('active', sw.dataset.color === ch.color);
     });
+  }
+  _syncSettingsUI() {
+    const s = this.stats.getSettings();
+    // Keybind display
+    const kb = s.keybinds || {};
+    const kbMap = { 'kb-gridshot': kb.gridshot, 'kb-tracking': kb.tracking, 'kb-reflex': kb.reflex, 'kb-deathmatch': kb.deathmatch,
+      'kb-spray-control': kb['spray-control'], 'kb-peek-practice': kb['peek-practice'], 'kb-precision': kb.precision,
+      'kb-multitarget': kb.multitarget, 'kb-strafetrack': kb.strafetrack, 'kb-restart': kb.restart, 'kb-menu': kb.menu };
+    for (const [id, val] of Object.entries(kbMap)) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(val).toUpperCase();
+    }
+    // Sensitivity slider
+    const sensSlider = document.getElementById('sensitivity');
+    if (sensSlider) {
+      sensSlider.value = s.sensitivity;
+      const lbl = document.getElementById('sensValue');
+      if (lbl) lbl.textContent = s.sensitivity.toFixed(2);
+    }
+    // Sound toggle + runtime audio
+    const soundToggle = document.getElementById('soundToggle');
+    if (soundToggle) soundToggle.classList.toggle('active', s.soundEnabled);
+    this.audio.setEnabled(s.soundEnabled);
+    // Sync option-group active states without re-adding listeners
+    const syncGroup = (groupId, activeValue) => {
+      const group = document.getElementById(groupId);
+      if (!group) return;
+      group.querySelectorAll('.setting-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value === activeValue);
+      });
+    };
+    syncGroup('targetSize', s.targetSize);
+    syncGroup('roundTimer', String(s.timer));
+    syncGroup('themeSelect', s.theme);
   }
 
   _renderCrosshairPreview() {
@@ -894,13 +1037,12 @@ export class Game {
             this.stats.data = this.stats._mergeDefaults(data);
             this.stats.save();
             this._applySettings();
+            this._syncSettingsUI();
             this._syncCrosshairUI();
             this._renderCrosshairPreview();
             this._populateStats();
-            this._initSettingsUI();
-            alert('Data imported successfully!');
-          } else {
-            alert('Invalid data file.');
+            alert('Data imported successfully.');
+            return;
           }
         } catch { alert('Failed to parse file.'); }
       };

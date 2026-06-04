@@ -53,9 +53,7 @@ export class TrackingMode {
       this.onTarget = dist <= this.target.radius;
       if (this.onTarget) {
         this.onTargetTime += dt * 1000;
-        this.hits++;
       }
-      this.shots++;
       this.score = Math.floor(this.onTargetTime);
     }
   }

@@ -112,7 +112,6 @@ export class StrafetrackMode {
         const trackingMultiplier = this.isPaused ? 0.5 : 1.5;
         this.onTargetTime += dt * trackingMultiplier;
       }
-      this.shots++;
     }
 
     // Score from tracking time

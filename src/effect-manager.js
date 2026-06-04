@@ -6,6 +6,11 @@ export class EffectManager {
     this.damageNumbers = [];
     this.particles = [];
     this.sparks = [];
+    this.muzzleFlashes = [];
+  }
+
+  addMuzzleFlash(x, y) {
+    this.muzzleFlashes.push({ x, y, time: 0, duration: 0.06, size: 8 + Math.random() * 4 });
   }
 
   addHitMarker(x, y) {
@@ -47,6 +52,7 @@ export class EffectManager {
         vy: Math.sin(angle) * speed,
         life: 0,
         maxLife: 0.3 + Math.random() * 0.2,
+        color: '#ffcc66',
         size: 1.5 + Math.random() * 1.5
       });
     }
@@ -55,30 +61,30 @@ export class EffectManager {
   update(dt) {
     for (let i = this.hitMarkers.length - 1; i >= 0; i--) {
       this.hitMarkers[i].time += dt;
-      if (this.hitMarkers[i].time >= this.hitMarkers[i].duration) {
-        this.hitMarkers.splice(i, 1);
-      }
+      if (this.hitMarkers[i].time >= this.hitMarkers[i].duration) this.hitMarkers.splice(i, 1);
     }
     for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
       this.damageNumbers[i].time += dt;
-      if (this.damageNumbers[i].time >= this.damageNumbers[i].duration) {
-        this.damageNumbers.splice(i, 1);
-      }
+      if (this.damageNumbers[i].time >= this.damageNumbers[i].duration) this.damageNumbers.splice(i, 1);
     }
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life += dt;
-      if (p.life >= p.maxLife) { this.particles.splice(i, 1); continue; }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vy += 300 * dt;
+      p.vy += 200 * dt;
+      if (p.life >= p.maxLife) this.particles.splice(i, 1);
     }
     for (let i = this.sparks.length - 1; i >= 0; i--) {
       const s = this.sparks[i];
       s.life += dt;
-      if (s.life >= s.maxLife) { this.sparks.splice(i, 1); continue; }
       s.x += s.vx * dt;
       s.y += s.vy * dt;
+      if (s.life >= s.maxLife) this.sparks.splice(i, 1);
+    }
+    for (let i = this.muzzleFlashes.length - 1; i >= 0; i--) {
+      this.muzzleFlashes[i].time += dt;
+      if (this.muzzleFlashes[i].time >= this.muzzleFlashes[i].duration) this.muzzleFlashes.splice(i, 1);
     }
   }
 
@@ -151,6 +157,24 @@ export class EffectManager {
       ctx.fill();
       ctx.restore();
     }
+
+    // Muzzle flashes
+    for (const f of this.muzzleFlashes) {
+      const progress = f.time / f.duration;
+      const alpha = 1 - progress;
+      const r = f.size * (1 + progress * 2);
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.8;
+      const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+      grad.addColorStop(0, 'rgba(255, 200, 100, 0.8)');
+      grad.addColorStop(0.5, 'rgba(255, 100, 50, 0.3)');
+      grad.addColorStop(1, 'rgba(255, 50, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   clear() {
@@ -158,5 +182,6 @@ export class EffectManager {
     this.damageNumbers.length = 0;
     this.particles.length = 0;
     this.sparks.length = 0;
+    this.muzzleFlashes.length = 0;
   }
 }
