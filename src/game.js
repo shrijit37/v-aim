@@ -6,6 +6,7 @@ import { EffectManager } from './effect-manager.js';
 import { Renderer } from './renderer.js';
 import { WeaponManager } from './weapon-manager.js';
 import { WEAPONS, WEAPON_LIST, DEFAULT_WEAPON } from './weapons.js';
+import { ViewModel } from './viewmodel.js';
 import { GridshotMode } from './modes/gridshot.js';
 import { TrackingMode } from './modes/tracking.js';
 import { ReflexMode } from './modes/reflex.js';
@@ -42,6 +43,7 @@ export class Game {
     this._fps = 0;
     this._fpsDisplay = null;
     this.weapon = new WeaponManager(this);
+    this.viewmodel = new ViewModel(this);
     // Session history
     this._sessionHistory = [];
   }
@@ -155,6 +157,7 @@ export class Game {
 
     // Fully reset weapon for new round (full ammo, cancel reload, reset recoil)
     this.weapon.resetForRound();
+    this.viewmodel.onEquip();
 
     this.mode.start();
     this.state = 'playing'; this._updateCursor();
@@ -188,6 +191,7 @@ export class Game {
 
     this.weapon.update(dt);
 
+    this.viewmodel.update(dt);
     this.mode.update(dt);
     this.effects.update(dt);
     this._render();
@@ -222,15 +226,18 @@ export class Game {
       const cy = this.mouseY;
       // Draw crosshair bloom based on current spread
       const bloom = wm.getCurrentSpread() * 3;
-      // Pass bloom info to renderer through a modified crosshair config
-      const chWithBloom = { ...ch, bloom };
+      // Pass bloom and ADS info to renderer
+      const chWithBloom = { ...ch, bloom, ads: wm.adsProgress };
       Renderer.drawCrosshair(ctx, cx, cy, chWithBloom);
       if (wm.recoilIndex > 1) {
         const rx = cx + wm.recoilSmooth.x * 1.5;
         const ry = cy - (wm.recoilSmooth.y) * 1.5;
         Renderer.drawRecoilIndicator(ctx, rx, ry, wm.getCurrentSpread());
       }
-      Renderer.drawWeaponSilhouette(ctx, w, h, wm.currentId);
+      // Draw the viewmodel weapon (replaces old drawWeaponSilhouette)
+      this.viewmodel.render(ctx, w, h);
+      // ADS scope overlay (sniper-style)
+      Renderer.drawADSScope(ctx, w, h, wm.adsProgress);
     }
   }
 
@@ -270,6 +277,45 @@ export class Game {
     // Reload indicator
     const reloadEl = document.getElementById('hudReloading');
     if (reloadEl) reloadEl.classList.toggle('visible', wp.reloading);
+    // ADS indicator + bar
+    const adsEl = document.getElementById('hudADS');
+    const adsBar = document.getElementById('hudADSBar');
+    const adsBarFill = adsBar ? adsBar.querySelector('.hud-ads-bar-fill') : null;
+    if (adsEl) {
+      if (this.weapon.ads || this.weapon.adsProgress > 0.01) {
+        adsEl.textContent = 'ADS';
+        adsEl.classList.add('active');
+      } else {
+        adsEl.textContent = '';
+        adsEl.classList.remove('active');
+      }
+    }
+    if (adsBar) {
+      adsBar.classList.toggle('visible', this.weapon.ads || this.weapon.adsProgress > 0.01);
+    }
+    if (adsBarFill) {
+      adsBarFill.style.width = (this.weapon.adsProgress * 100) + '%';
+    }
+  }
+
+  /** Add a kill feed entry (Valorant-style top-right notification) */
+  _addKillFeed(headshot, weaponName) {
+    const feed = document.getElementById('hudKillFeed');
+    if (!feed) return;
+    const item = document.createElement('div');
+    item.className = 'hud-killfeed-item' + (headshot ? ' headshot' : '');
+    const icon = headshot ? '◆' : '✕';
+    const weaponLabel = weaponName || '';
+    item.innerHTML = `<span class="kill-icon">${icon}</span><span>${weaponLabel}</span>`;
+    feed.appendChild(item);
+    // Auto-remove after animation completes
+    setTimeout(() => {
+      if (item.parentNode) item.remove();
+    }, 3000);
+    // Keep max 5 items
+    while (feed.children.length > 5) {
+      feed.removeChild(feed.firstChild);
+    }
   }
 
   _endRound() {
@@ -356,12 +402,22 @@ export class Game {
   _bindEvents() {
     this.canvas.addEventListener('mousedown', (e) => {
       this._unlockAudio();
+      // Right-click: toggle ADS
+      if (e.button === 2) {
+        e.preventDefault();
+        if (this.state === 'playing' || this.state === 'paused') {
+          this.weapon.toggleADS();
+          this.audio.play('menuClick');
+        }
+        return;
+      }
+      // Left-click or touch
       const pos = this._getPos(e);
       if (this.state === 'playing' && this.mode) {
         // Fire weapon (checks ammo, fire rate, reload)
         const shot = this.weapon.fire();
         if (!shot) {
-          // Weapon blocked — play empty click if ammo empty, else ignore (fire rate cap)
+          // Weapon blocked
           if (this.weapon.ammo === 0 && !this.weapon.reloading) {
             this.audio.play('empty');
           }
@@ -371,20 +427,28 @@ export class Game {
         const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
         const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
-          if (r.headshot) this.audio.play('headshot');
-          else if (r.hit) this.audio.play('hit');
-          else this.audio.play('miss');
-          // Weapon-specific audio overlay
+          if (r.headshot) {
+            this.audio.play('headshot');
+            this._addKillFeed(true, this.weapon.weapon.name);
+          } else if (r.hit) {
+            this.audio.play('hit');
+            this._addKillFeed(false, this.weapon.weapon.name);
+          } else {
+            this.audio.play('miss');
+          }
           this.audio.playWeaponFire(this.weapon.currentId);
-          // Muzzle flash
-          this.effects.addMuzzleFlash(pos.x, pos.y);
+          // Visual feedback tied to gun model position
+          this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
+          this.viewmodel.onFire();
           // Auto-reload when empty
           if (this.weapon.ammo === 0 && !this.weapon.reloading) {
             this.weapon.reload();
+            this.viewmodel.onReload();
           }
         }
       }
     });
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     document.addEventListener('mousemove', (e) => {
       const pos = this._getPos(e);
@@ -412,13 +476,21 @@ export class Game {
         const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
         const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
-          if (r.headshot) this.audio.play('headshot');
-          else if (r.hit) this.audio.play('hit');
-          else this.audio.play('miss');
+          if (r.headshot) {
+            this.audio.play('headshot');
+            this._addKillFeed(true, this.weapon.weapon.name);
+          } else if (r.hit) {
+            this.audio.play('hit');
+            this._addKillFeed(false, this.weapon.weapon.name);
+          } else {
+            this.audio.play('miss');
+          }
           this.audio.playWeaponFire(this.weapon.currentId);
-          this.effects.addMuzzleFlash(pos.x, pos.y);
+          this.viewmodel.onFire();
+          this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
           if (this.weapon.ammo === 0 && !this.weapon.reloading) {
             this.weapon.reload();
+            this.viewmodel.onReload();
           }
         }
       }
@@ -470,23 +542,27 @@ export class Game {
       const numIdx = parseInt(key) - 1;
       if (numIdx >= 0 && numIdx < weaponKeys.length) {
         this.weapon.selectWeapon(weaponKeys[numIdx]);
+        this.viewmodel.onEquip();
         return;
       }
       if (key.toLowerCase() === 'q') {
         const idx = weaponKeys.indexOf(this.weapon.currentId);
         const prev = (idx - 1 + weaponKeys.length) % weaponKeys.length;
         this.weapon.selectWeapon(weaponKeys[prev]);
+        this.viewmodel.onEquip();
         return;
       }
       if (key.toLowerCase() === 'e') {
         const idx = weaponKeys.indexOf(this.weapon.currentId);
         const next = (idx + 1) % weaponKeys.length;
         this.weapon.selectWeapon(weaponKeys[next]);
+        this.viewmodel.onEquip();
         return;
       }
       // Reload
       if (key.toLowerCase() === 'r' && this.state === 'playing') {
         this.weapon.reload();
+        this.viewmodel.onReload();
         return;
       }
       // Movement (affects accuracy)
