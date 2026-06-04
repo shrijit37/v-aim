@@ -6,7 +6,7 @@ language: "en-US"
 reviews:
   profile: "chill"
   request_review: always
-  review_status: full
+  review_status: true
   path_instructions: []
   abort_on_close: true
   auto_review:

@@ -142,6 +142,9 @@ export class Game {
     this.lastClickTime = performance.now();
     this._elapsed = 0;
     this._lastTime = performance.now();
+    // Clear any stale kill-feed entries from previous round
+    const feed = document.getElementById('hudKillFeed');
+    if (feed) feed.textContent = '';
 
     switch (this._currentModeName) {
       case 'gridshot': this.mode = new GridshotMode(this); break;

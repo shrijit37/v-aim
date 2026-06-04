@@ -185,6 +185,10 @@ export class WeaponManager {
     const now = performance.now() / 1000;
     if (this._adsToggleCooldown > 0) this._adsToggleCooldown -= dt;
 
+    // ADS progress interpolation runs every frame (even during reload) to keep HUD/viewmodel in sync
+    const adsTarget = this.ads ? 1 : 0;
+    this.adsProgress += (adsTarget - this.adsProgress) * Math.min(1, dt * 10);
+
     // Reload timer
     if (this.reloading) {
       this._reloadTimer -= dt;
@@ -228,9 +232,6 @@ export class WeaponManager {
     this.recoilSmooth.x += (this.recoilOffset.x - this.recoilSmooth.x) * Math.min(1, dt * 15);
     this.recoilSmooth.y += (this.recoilOffset.y - this.recoilSmooth.y) * Math.min(1, dt * 15);
 
-    // ADS progress interpolation
-    const adsTarget = this.ads ? 1 : 0;
-    this.adsProgress += (adsTarget - this.adsProgress) * Math.min(1, dt * 10);
   }
 
   reload() {
