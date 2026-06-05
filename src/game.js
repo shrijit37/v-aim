@@ -1041,7 +1041,9 @@ export class Game {
             this._syncCrosshairUI();
             this._renderCrosshairPreview();
             this._populateStats();
-            alert('Invalid data file.');
+            alert('Data imported successfully!');
+          } else {
+            alert('Invalid data file. Must contain both settings and stats.');
           }
         } catch { alert('Failed to parse file.'); }
       };
