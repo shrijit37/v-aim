@@ -793,6 +793,52 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   font-weight: 300;
 }
 
+.hud-weapon {
+  position: absolute;
+  bottom: 60px;
+  right: 24px;
+  text-align: right;
+  pointer-events: none;
+}
+
+.hud-weapon-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.15);
+  letter-spacing: 2px;
+  display: block;
+}
+
+.hud-weapon-ammo {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.25);
+  letter-spacing: 1px;
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+
+.hud-weapon-ammo .low-ammo {
+  color: #FF4655;
+}
+
+.hud-reloading {
+  display: none;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #FFD700;
+  font-weight: 600;
+  margin-left: 8px;
+  animation: blink 0.6s step-end infinite;
+}
+
+.hud-reloading.visible {
+  display: inline;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
 /* ============================================
    PAUSE OVERLAY
    ============================================ */

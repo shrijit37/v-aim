@@ -227,7 +227,7 @@ export class Game {
       Renderer.drawCrosshair(ctx, cx, cy, chWithBloom);
       if (wm.recoilIndex > 1) {
         const rx = cx + wm.recoilSmooth.x * 1.5;
-        const ry = cy + (wm.recoilSmooth.y) * 1.5;
+        const ry = cy - (wm.recoilSmooth.y) * 1.5;
         Renderer.drawRecoilIndicator(ctx, rx, ry, wm.getCurrentSpread());
       }
       Renderer.drawWeaponSilhouette(ctx, w, h, wm.currentId);
@@ -367,8 +367,8 @@ export class Game {
           }
           return;
         }
-        const aimX = pos.x + shot.recoilOffset.x * 1.2;
-        const aimY = pos.y + (shot.recoilOffset.y) * 1.2;
+        const aimX = pos.x + (shot.recoilOffset.x + shot.spreadOffset.x) * 1.2;
+        const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
         const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
           if (r.headshot) this.audio.play('headshot');
@@ -408,8 +408,8 @@ export class Game {
           }
           return;
         }
-        const aimX = pos.x + shot.recoilOffset.x * 1.2;
-        const aimY = pos.y + (shot.recoilOffset.y) * 1.2;
+        const aimX = pos.x + (shot.recoilOffset.x + shot.spreadOffset.x) * 1.2;
+        const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
         const r = this.mode.onMouseDown(aimX, aimY);
         if (r) {
           if (r.headshot) this.audio.play('headshot');
@@ -466,7 +466,7 @@ export class Game {
     // Weapon controls (playing state only)
     if (this.state === 'playing' || this.state === 'paused') {
       // Weapon switching
-      const weaponKeys = ['vandal', 'phantom', 'sheriff', 'ghost', 'spectre', 'operator', 'judge', 'guardian'];
+      const weaponKeys = WEAPON_LIST;
       const numIdx = parseInt(key) - 1;
       if (numIdx >= 0 && numIdx < weaponKeys.length) {
         this.weapon.selectWeapon(weaponKeys[numIdx]);
@@ -738,6 +738,40 @@ export class Game {
       sw.classList.toggle('active', sw.dataset.color === ch.color);
     });
   }
+  _syncSettingsUI() {
+    const s = this.stats.getSettings();
+    // Keybind display
+    const kb = s.keybinds || {};
+    const kbMap = { 'kb-gridshot': kb.gridshot, 'kb-tracking': kb.tracking, 'kb-reflex': kb.reflex, 'kb-deathmatch': kb.deathmatch,
+      'kb-spray-control': kb['spray-control'], 'kb-peek-practice': kb['peek-practice'], 'kb-precision': kb.precision,
+      'kb-multitarget': kb.multitarget, 'kb-strafetrack': kb.strafetrack, 'kb-restart': kb.restart, 'kb-menu': kb.menu };
+    for (const [id, val] of Object.entries(kbMap)) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(val).toUpperCase();
+    }
+    // Sensitivity slider
+    const sensSlider = document.getElementById('sensitivity');
+    if (sensSlider) {
+      sensSlider.value = s.sensitivity;
+      const lbl = document.getElementById('sensValue');
+      if (lbl) lbl.textContent = s.sensitivity.toFixed(2);
+    }
+    // Sound toggle + runtime audio
+    const soundToggle = document.getElementById('soundToggle');
+    if (soundToggle) soundToggle.classList.toggle('active', s.soundEnabled);
+    this.audio.setEnabled(s.soundEnabled);
+    // Sync option-group active states without re-adding listeners
+    const syncGroup = (groupId, activeValue) => {
+      const group = document.getElementById(groupId);
+      if (!group) return;
+      group.querySelectorAll('.setting-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value === activeValue);
+      });
+    };
+    syncGroup('targetSize', s.targetSize);
+    syncGroup('roundTimer', String(s.timer));
+    syncGroup('themeSelect', s.theme);
+  }
 
   _renderCrosshairPreview() {
     const canvas = document.getElementById('crosshairPreview');
@@ -1003,12 +1037,13 @@ export class Game {
             this.stats.data = this.stats._mergeDefaults(data);
             this.stats.save();
             this._applySettings();
+            this._syncSettingsUI();
             this._syncCrosshairUI();
             this._renderCrosshairPreview();
             this._populateStats();
             alert('Data imported successfully!');
           } else {
-            alert('Invalid data file.');
+            alert('Invalid data file. Must contain both settings and stats.');
           }
         } catch { alert('Failed to parse file.'); }
       };
