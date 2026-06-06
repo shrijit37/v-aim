@@ -648,6 +648,12 @@ export class Game {
       const kb = this.stats.getSettings().keybinds || {};
       const key = e.key;
 
+      // Onboarding overlay shown — only Enter/Escape should dismiss it
+      if (document.getElementById('onboarding-overlay')) {
+        if (e.key === 'Enter' || e.key === 'Escape') return;
+        return;
+      }
+
       if (key === kb.training && this.state === 'menu') {
         this._startTrainingRoutine();
         return;
