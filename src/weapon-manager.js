@@ -111,15 +111,21 @@ export class WeaponManager {
 
     // ---- Recoil ----
     const pattern = this._weapon.recoil;
+    let deltaX = 0;
+    let deltaY = 0;
     if (this.recoilIndex < pattern.length) {
-      this.recoilOffset.x += pattern[this.recoilIndex].x;
-      this.recoilOffset.y += pattern[this.recoilIndex].y;
+      const current = pattern[this.recoilIndex];
+      const prev = this.recoilIndex > 0 ? pattern[this.recoilIndex - 1] : { x: 0, y: 0 };
+      deltaX = current.x - prev.x;
+      deltaY = current.y - prev.y;
       this.recoilIndex++;
     } else {
-      const last = pattern[pattern.length - 1];
-      this.recoilOffset.x += last.x + (Math.random() - 0.5) * 1.5;
-      this.recoilOffset.y += last.y + (Math.random() - 0.5) * 1.0;
+      // Beyond pattern length: add small random horizontal sway, but no further vertical climb
+      deltaX = (Math.random() - 0.5) * 0.8;
+      deltaY = (Math.random() - 0.5) * 0.4;
     }
+    this.recoilOffset.x += deltaX;
+    this.recoilOffset.y += deltaY;
 
     // ---- Spread ----
     const { standing, walking, running, crouching } = this._weapon.spread;

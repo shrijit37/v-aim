@@ -46,6 +46,7 @@ export class Game {
     this.viewmodel = new ViewModel(this);
     // Session history
     this._sessionHistory = [];
+    this.isLeftMouseDown = false;
   }
 
   init() {
@@ -82,6 +83,7 @@ export class Game {
      STATE MACHINE
      ========================================== */
   showMenu(id) {
+    this.isLeftMouseDown = false;
     this._clearActiveKeybind();
     this._trainingQueue = null;
     document.querySelectorAll('.menu-screen').forEach(el => el.classList.remove('active'));
@@ -215,6 +217,10 @@ export class Game {
 
     this.weapon.update(dt);
 
+    if (this.state === 'playing' && this.isLeftMouseDown && this.weapon.weapon.automatic) {
+      this._fireWeapon(false);
+    }
+
     this.viewmodel.setADS(this.weapon.adsProgress);
     this.viewmodel.update(dt);
     this.mode.update(dt);
@@ -255,8 +261,9 @@ export class Game {
       const chWithBloom = { ...ch, bloom, ads: wm.adsProgress };
       Renderer.drawCrosshair(ctx, cx, cy, chWithBloom);
       if (wm.recoilIndex > 1) {
-        const rx = cx + wm.recoilSmooth.x * 1.5;
-        const ry = cy - (wm.recoilSmooth.y) * 1.5;
+        const scale = (this.width / 103) * 1.3;
+        const rx = cx + wm.recoilSmooth.x * scale;
+        const ry = cy - wm.recoilSmooth.y * scale;
         Renderer.drawRecoilIndicator(ctx, rx, ry, wm.getCurrentSpread());
       }
       Renderer.drawWeaponSilhouette(ctx, w, h, wm.currentId);
@@ -347,6 +354,7 @@ export class Game {
   }
 
   _endRound() {
+    this.isLeftMouseDown = false;
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
     this._exitPointerLock();
 
@@ -463,73 +471,21 @@ export class Game {
         }
         return;
       }
-      // Left-click or touch
-      const pos = (document.pointerLockElement === this.canvas)
-        ? { x: this.mouseX, y: this.mouseY }
-        : this._getPos(e);
-      if (this.state === 'playing' && this.mode) {
-        // Fire weapon (checks ammo, fire rate, reload)
-        const shot = this.weapon.fire();
-        if (!shot) {
-          // Weapon blocked — play empty click if ammo empty, else ignore (fire rate cap)
-          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
-            this.audio.play('empty');
-          }
-          return;
-        }
-        const aimX = pos.x + (shot.recoilOffset.x + shot.spreadOffset.x) * 1.2;
-        const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
-        const r = this.mode.onMouseDown(aimX, aimY);
-        if (r) {
-          if (r.headshot) {
-            this.audio.play('headshot');
-            this._addKillFeed(true, this.weapon.weapon.name);
-          } else if (r.hit) {
-            this.audio.play('hit');
-            this._addKillFeed(false, this.weapon.weapon.name);
-          } else {
-            this.audio.play('miss');
-          }
-          this.audio.playWeaponFire(this.weapon.currentId);
+      // Left-click
+      if (e.button === 0) {
+        const pos = (document.pointerLockElement === this.canvas)
+          ? { x: this.mouseX, y: this.mouseY }
+          : this._getPos(e);
+        this.mouseX = pos.x;
+        this.mouseY = pos.y;
+        this.isLeftMouseDown = true;
+        this._fireWeapon(true);
+      }
+    });
 
-          // Trigger viewmodel recoil kick
-          this.viewmodel.onFire();
-
-          // Custom muzzle flash
-          this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY, this.weapon.currentId);
-
-          // Muzzle smoke
-          this.effects.addMuzzleSmoke(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
-
-          // Bullet impact decals (holes)
-          this.effects.addBulletHole(aimX, aimY);
-
-          // Bullet tracers connecting muzzle to impact
-          const tracerColor = (this.weapon.currentId === 'phantom' || this.weapon.currentId === 'spectre' || this.weapon.currentId === 'ghost')
-            ? 'rgba(0, 240, 255, 0.75)'
-            : this.weapon.currentId === 'operator'
-            ? 'rgba(255, 200, 50, 0.9)'
-            : 'rgba(255, 180, 50, 0.8)';
-
-          if (this.weapon.weapon.pellets) {
-            for (let i = 0; i < this.weapon.weapon.pellets; i++) {
-              const spreadMult = this.weapon.weapon.spread.standing * 0.8;
-              const angle = Math.random() * Math.PI * 2;
-              const dist = Math.random() * spreadMult;
-              const pAimX = aimX + Math.cos(angle) * dist * 6;
-              const pAimY = aimY + Math.sin(angle) * dist * 6;
-              this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, pAimX, pAimY, tracerColor, true);
-            }
-          } else {
-            this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, aimX, aimY, tracerColor, false);
-          }
-
-          // Auto-reload when empty
-          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
-            const started = this.weapon.reload();
-            if (started) this.viewmodel.onReload();
-          }
-        }
+    document.addEventListener('mouseup', (e) => {
+      if (e.button === 0) {
+        this.isLeftMouseDown = false;
       }
     });
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -555,6 +511,7 @@ export class Game {
     document.addEventListener('pointerlockchange', () => {
       const s = this.stats.getSettings();
       if (s.rawInput && document.pointerLockElement !== this.canvas) {
+        this.isLeftMouseDown = false;
         if (this.state === 'playing') {
           this._pause();
         }
@@ -573,67 +530,18 @@ export class Game {
       this.mouseX = pos.x;
       this.mouseY = pos.y;
       if (this.state === 'playing' && this.mode) {
-        const shot = this.weapon.fire();
-        if (!shot) {
-          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
-            this.audio.play('empty');
-          }
-          return;
-        }
-        const aimX = pos.x + (shot.recoilOffset.x + shot.spreadOffset.x) * 1.2;
-        const aimY = pos.y - (shot.recoilOffset.y + shot.spreadOffset.y) * 1.2;
-        const r = this.mode.onMouseDown(aimX, aimY);
-        if (r) {
-          if (r.headshot) {
-            this.audio.play('headshot');
-            this._addKillFeed(true, this.weapon.weapon.name);
-          } else if (r.hit) {
-            this.audio.play('hit');
-            this._addKillFeed(false, this.weapon.weapon.name);
-          } else {
-            this.audio.play('miss');
-          }
-          this.audio.playWeaponFire(this.weapon.currentId);
-          
-          // Trigger viewmodel recoil kick
-          this.viewmodel.onFire();
-
-          // Custom muzzle flash
-          this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY, this.weapon.currentId);
-
-          // Muzzle smoke
-          this.effects.addMuzzleSmoke(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
-
-          // Bullet impact decals (holes)
-          this.effects.addBulletHole(aimX, aimY);
-
-          // Bullet tracers connecting muzzle to impact
-          const tracerColor = (this.weapon.currentId === 'phantom' || this.weapon.currentId === 'spectre' || this.weapon.currentId === 'ghost')
-            ? 'rgba(0, 240, 255, 0.75)'
-            : this.weapon.currentId === 'operator'
-            ? 'rgba(255, 200, 50, 0.9)'
-            : 'rgba(255, 180, 50, 0.8)';
-
-          if (this.weapon.weapon.pellets) {
-            for (let i = 0; i < this.weapon.weapon.pellets; i++) {
-              const spreadMult = this.weapon.weapon.spread.standing * 0.8;
-              const angle = Math.random() * Math.PI * 2;
-              const dist = Math.random() * spreadMult;
-              const pAimX = aimX + Math.cos(angle) * dist * 6;
-              const pAimY = aimY + Math.sin(angle) * dist * 6;
-              this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, pAimX, pAimY, tracerColor, true);
-            }
-          } else {
-            this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, aimX, aimY, tracerColor, false);
-          }
-
-          if (this.weapon.ammo === 0 && !this.weapon.reloading) {
-            const started = this.weapon.reload();
-            if (started) this.viewmodel.onReload();
-          }
-        }
+        this.isLeftMouseDown = true;
+        this._fireWeapon(true);
       }
     }, { passive: false });
+
+    this.canvas.addEventListener('touchend', () => {
+      this.isLeftMouseDown = false;
+    }, { passive: true });
+
+    this.canvas.addEventListener('touchcancel', () => {
+      this.isLeftMouseDown = false;
+    }, { passive: true });
 
     document.addEventListener('touchmove', (e) => {
       e.preventDefault();
@@ -701,7 +609,10 @@ export class Game {
       // Reload
       if (key.toLowerCase() === 'r' && this.state === 'playing') {
         const started = this.weapon.reload();
-        if (started) this.viewmodel.onReload();
+        if (started) {
+          this.viewmodel.onReload();
+          this.isLeftMouseDown = false;
+        }
         return;
       }
       // Movement (affects accuracy)
@@ -782,6 +693,81 @@ export class Game {
     };
   }
 
+  _fireWeapon(isInitialClick = false) {
+    if (this.state !== 'playing' || !this.mode) return;
+
+    // Fire weapon (checks ammo, fire rate, reload)
+    const shot = this.weapon.fire();
+    if (!shot) {
+      // Weapon blocked — play empty click if ammo empty and it's the initial click, else ignore
+      if (isInitialClick && this.weapon.ammo === 0 && !this.weapon.reloading) {
+        this.audio.play('empty');
+      }
+      return;
+    }
+
+    // Convert recoil and spread from degrees to pixels using resolution-independent FOV scale factor
+    // Valorant's FOV is 103 degrees.
+    const scale = (this.width / 103) * 1.3;
+    const aimX = this.mouseX + (shot.recoilOffset.x + shot.spreadOffset.x) * scale;
+    const aimY = this.mouseY - (shot.recoilOffset.y + shot.spreadOffset.y) * scale;
+    const r = this.mode.onMouseDown(aimX, aimY);
+    if (r) {
+      if (r.headshot) {
+        this.audio.play('headshot');
+        this._addKillFeed(true, this.weapon.weapon.name);
+      } else if (r.hit) {
+        this.audio.play('hit');
+        this._addKillFeed(false, this.weapon.weapon.name);
+      } else {
+        this.audio.play('miss');
+      }
+      this.audio.playWeaponFire(this.weapon.currentId);
+
+      // Trigger viewmodel recoil kick
+      this.viewmodel.onFire();
+
+      // Custom muzzle flash
+      this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY, this.weapon.currentId);
+
+      // Muzzle smoke
+      this.effects.addMuzzleSmoke(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
+
+      // Bullet impact decals (holes)
+      this.effects.addBulletHole(aimX, aimY);
+
+      // Bullet tracers connecting muzzle to impact
+      const tracerColor = (this.weapon.currentId === 'phantom' || this.weapon.currentId === 'spectre' || this.weapon.currentId === 'ghost')
+        ? 'rgba(0, 240, 255, 0.75)'
+        : this.weapon.currentId === 'operator'
+        ? 'rgba(255, 200, 50, 0.9)'
+        : 'rgba(255, 180, 50, 0.8)';
+
+      if (this.weapon.weapon.pellets) {
+        for (let i = 0; i < this.weapon.weapon.pellets; i++) {
+          const spreadMult = this.weapon.weapon.spread.standing * 0.8;
+          const angle = Math.random() * Math.PI * 2;
+          const dist = Math.random() * spreadMult;
+          // Apply pellets spread scaled by FOV
+          const pAimX = aimX + Math.cos(angle) * dist * scale * 0.3;
+          const pAimY = aimY + Math.sin(angle) * dist * scale * 0.3;
+          this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, pAimX, pAimY, tracerColor, true);
+        }
+      } else {
+        this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, aimX, aimY, tracerColor, false);
+      }
+
+      // Auto-reload when empty
+      if (this.weapon.ammo === 0 && !this.weapon.reloading) {
+        const started = this.weapon.reload();
+        if (started) {
+          this.viewmodel.onReload();
+          this.isLeftMouseDown = false; // Require release and click again after reload
+        }
+      }
+    }
+  }
+
   _unlockAudio() {
     if (this.audio.ctx && this.audio.ctx.state === 'suspended') {
       this.audio.ctx.resume();
@@ -790,6 +776,7 @@ export class Game {
 
   _pause() {
     if (this.state !== 'playing') return;
+    this.isLeftMouseDown = false;
     this.state = 'paused'; this._updateCursor();
     this._exitPointerLock();
     this.audio.play('menuClick');
