@@ -464,7 +464,9 @@ export class Game {
         return;
       }
       // Left-click or touch
-      const pos = this._getPos(e);
+      const pos = (document.pointerLockElement === this.canvas)
+        ? { x: this.mouseX, y: this.mouseY }
+        : this._getPos(e);
       if (this.state === 'playing' && this.mode) {
         // Fire weapon (checks ammo, fire rate, reload)
         const shot = this.weapon.fire();
