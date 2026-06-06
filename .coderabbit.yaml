@@ -1,0 +1,19 @@
+# CodeRabbit Configuration
+# https://docs.coderabbit.ai/guides/configuring-coderabbit
+# This config ensures full reviews on every new PR, preventing skipped reviews.
+
+language: "en-US"
+reviews:
+  profile: "chill"
+  request_review: always
+  review_status: true
+  path_instructions: []
+  abort_on_close: true
+  auto_review:
+    base_branches:
+      - main
+  tools:
+    docstring-coverage:
+      enabled: false
+    unit-tests:
+      enabled: false

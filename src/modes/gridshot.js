@@ -47,9 +47,12 @@ export class GridshotMode {
     }
   }
 
-  _spawnNewTarget() {
+  _spawnNewTarget(excludeCell = null) {
     if (!this.running) return;
     const occupied = new Set(this.targets.map(t => `${t.x},${t.y}`));
+    if (excludeCell) {
+      occupied.add(excludeCell);
+    }
     const available = this.gridCells.filter(c => !occupied.has(`${c.x},${c.y}`));
     if (available.length === 0) return;
     const cell = available[Math.floor(Math.random() * available.length)];
@@ -113,8 +116,10 @@ export class GridshotMode {
         t.alive = false;
 
         // Remove hit target and spawn new one
+        const hitX = t.x;
+        const hitY = t.y;
         this.targets.splice(i, 1);
-        this._spawnNewTarget();
+        this._spawnNewTarget(`${hitX},${hitY}`);
 
         const rt = this.game.lastClickTime ? (now - this.game.lastClickTime) / 1000 : 0.2;
         this.reactionTimes.push(rt);

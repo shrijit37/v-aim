@@ -861,6 +861,90 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   display: inline;
 }
 
+.hud-ads {
+  display: none;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #FF4655;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.hud-ads.active {
+  display: inline;
+}
+
+.hud-ads-bar {
+  position: absolute;
+  bottom: 48px;
+  right: 24px;
+  width: 120px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.hud-ads-bar.visible {
+  opacity: 1;
+}
+
+.hud-ads-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: #FF4655;
+  border-radius: 2px;
+  transition: width 0.05s linear;
+}
+
+.hud-killfeed {
+  position: absolute;
+  top: 60px;
+  right: 24px;
+  width: 200px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hud-killfeed-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ece8e1;
+  animation: killFeedIn 0.3s ease-out, killFeedOut 0.3s ease-in 2.7s forwards;
+}
+
+.hud-killfeed-item .kill-icon {
+  color: #FF4655;
+  font-size: 14px;
+}
+
+.hud-killfeed-item.headshot {
+  color: #FFD700;
+}
+
+.hud-killfeed-item.headshot .kill-icon {
+  color: #FFD700;
+}
+
+@keyframes killFeedIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes killFeedOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(20px); }
+}
 @keyframes blink {
   50% { opacity: 0; }
 }
@@ -1147,6 +1231,12 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   }
   .menu-screen { transform: none; }
   #hud { transform: none; }
+  /* Kill-feed items must remain visible — override the universal animation reset */
+  .hud-killfeed-item {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ============================================
