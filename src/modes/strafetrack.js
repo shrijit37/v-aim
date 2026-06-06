@@ -23,6 +23,7 @@ export class StrafetrackMode {
     this.onTargetTime = 0;
     this.onTarget = false;
     this.kills = 0;
+    this.clickScore = 0;
 
     const size = this.game.getTargetSize();
     const rad = size === 'small' ? 14 : size === 'medium' ? 18 : 24;
@@ -115,7 +116,7 @@ export class StrafetrackMode {
     }
 
     // Score from tracking time
-    this.score = Math.floor(this.onTargetTime);
+    this.score = Math.floor(this.onTargetTime * 100) + this.clickScore;
   }
 
   render(ctx) {
@@ -159,7 +160,8 @@ export class StrafetrackMode {
         this.hitsWhileStopped++;
       }
       const headBonus = isHeadshot ? 50 : 0;
-      this.score += base + headBonus;
+      this.clickScore += base + headBonus;
+      this.score = Math.floor(this.onTargetTime * 100) + this.clickScore;
 
       const rt = this.game.lastClickTime ? (now - this.game.lastClickTime) / 1000 : 0.2;
       this.reactionTimes.push(rt);

@@ -52,7 +52,7 @@ export class PrecisionMode {
       // Draw a very visible center dot (the actual hit zone)
       ctx.save();
       ctx.beginPath();
-      ctx.arc(this.target.x, this.target.y, this.target.radius * 0.35, 0, Math.PI * 2);
+      ctx.arc(this.target.x, this.target.y, this.target.radius * 0.28, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.fill();
       ctx.restore();

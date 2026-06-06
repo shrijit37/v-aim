@@ -30,21 +30,39 @@ export class GridshotMode {
     const margin = 60;
     const gapX = (w - margin * 2) / cols;
     const gapY = (h - margin * 2) / rows;
-    const rad = size === 'small' ? 14 : size === 'medium' ? 18 : 24;
 
+    this.gridCells = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        this.targets.push({
-          id: this.nextId++,
+        this.gridCells.push({
           x: margin + c * gapX + gapX / 2,
-          y: margin + r * gapY + gapY / 2,
-          radius: rad,
-          alive: true,
-          respawnTimer: 0,
-          spawnScale: 1
+          y: margin + r * gapY + gapY / 2
         });
       }
     }
+
+    // Spawn 3 initial targets
+    for (let i = 0; i < 3; i++) {
+      this._spawnNewTarget();
+    }
+  }
+
+  _spawnNewTarget() {
+    if (!this.running) return;
+    const occupied = new Set(this.targets.map(t => `${t.x},${t.y}`));
+    const available = this.gridCells.filter(c => !occupied.has(`${c.x},${c.y}`));
+    if (available.length === 0) return;
+    const cell = available[Math.floor(Math.random() * available.length)];
+    const size = this.game.getTargetSize();
+    const rad = size === 'small' ? 14 : size === 'medium' ? 18 : 24;
+    this.targets.push({
+      id: this.nextId++,
+      x: cell.x,
+      y: cell.y,
+      radius: rad,
+      alive: true,
+      spawnScale: 0
+    });
   }
 
   update(dt) {
@@ -52,17 +70,9 @@ export class GridshotMode {
     this.timeLeft -= dt;
     if (this.timeLeft <= 0) { this.timeLeft = 0; this.running = false; return; }
 
-    let respawning = false;
     for (const t of this.targets) {
-      if (!t.alive) {
-        t.respawnTimer -= dt;
-        if (t.respawnTimer <= 0) {
-          t.alive = true;
-          t.spawnScale = 0;
-        }
-      }
       if (t.alive && t.spawnScale < 1) {
-        t.spawnScale = Math.min(1, t.spawnScale + dt * 8);
+        t.spawnScale = Math.min(1, t.spawnScale + dt * 10);
       }
     }
   }
@@ -84,7 +94,8 @@ export class GridshotMode {
     this.shots++;
     const now = performance.now();
 
-    for (const t of this.targets) {
+    for (let i = 0; i < this.targets.length; i++) {
+      const t = this.targets[i];
       if (!t.alive) continue;
       const dx = x - t.x;
       const dy = y - t.y;
@@ -100,7 +111,11 @@ export class GridshotMode {
         const headBonus = isHeadshot ? 50 : 0;
         this.score += base + timeBonus + headBonus;
         t.alive = false;
-        t.respawnTimer = 0.25;
+
+        // Remove hit target and spawn new one
+        this.targets.splice(i, 1);
+        this._spawnNewTarget();
+
         const rt = this.game.lastClickTime ? (now - this.game.lastClickTime) / 1000 : 0.2;
         this.reactionTimes.push(rt);
         this.game.lastClickTime = now;

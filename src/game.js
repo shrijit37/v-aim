@@ -95,6 +95,14 @@ export class Game {
   }
 
   startGame(modeName) {
+    if (this.mode) {
+      this.mode.end();
+      this.mode = null;
+    }
+    if (this._rafId) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
     this._currentModeName = modeName;
     this.audio.play('menuClick');
     this._startCountdown();
@@ -561,10 +569,9 @@ export class Game {
     const rect = this.canvas.getBoundingClientRect();
     const clientX = e.clientX !== undefined ? e.clientX : e.pageX;
     const clientY = e.clientY !== undefined ? e.clientY : e.pageY;
-    const sens = this.stats.getSettings().sensitivity;
     return {
-      x: (clientX - rect.left) * sens,
-      y: (clientY - rect.top) * sens
+      x: clientX - rect.left,
+      y: clientY - rect.top
     };
   }
 
@@ -708,6 +715,61 @@ export class Game {
     // Export/Import buttons
     document.getElementById('exportData').addEventListener('click', () => this._exportData());
     document.getElementById('importData').addEventListener('click', () => this._importData());
+    this._initKeybindsUI();
+  }
+
+  _initKeybindsUI() {
+    const keybindRows = document.querySelectorAll('.setting-row .value[id^="kb-"]');
+    keybindRows.forEach(el => {
+      el.style.cursor = 'pointer';
+      el.title = 'Click to rebind';
+      el.addEventListener('click', () => {
+        // Cancel any active binding first
+        if (this._activeBindingElement && this._activeBindingElement !== el) {
+          const oldVal = this.stats.getSettings().keybinds[this._activeBindingElement.id.replace('kb-', '')];
+          this._activeBindingElement.textContent = String(oldVal).toUpperCase();
+          this._activeBindingElement.classList.remove('binding-active');
+          if (this._activeBindingHandler) {
+            document.removeEventListener('keydown', this._activeBindingHandler, true);
+          }
+        }
+
+        if (el.classList.contains('binding-active')) {
+          // Toggle off if clicked again
+          const oldVal = this.stats.getSettings().keybinds[el.id.replace('kb-', '')];
+          el.textContent = String(oldVal).toUpperCase();
+          el.classList.remove('binding-active');
+          if (this._activeBindingHandler) {
+            document.removeEventListener('keydown', this._activeBindingHandler, true);
+            this._activeBindingHandler = null;
+          }
+          this._activeBindingElement = null;
+          return;
+        }
+
+        this._activeBindingElement = el;
+        el.textContent = 'PRESS KEY...';
+        el.classList.add('binding-active');
+
+        const handleBind = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const newKey = e.key;
+          const bindId = el.id.replace('kb-', '');
+          
+          this.stats.updateSetting(`keybinds.${bindId}`, newKey);
+          el.textContent = newKey.toUpperCase();
+          el.classList.remove('binding-active');
+          this._activeBindingElement = null;
+          this._activeBindingHandler = null;
+          
+          document.removeEventListener('keydown', handleBind, true);
+        };
+        
+        this._activeBindingHandler = handleBind;
+        document.addEventListener('keydown', handleBind, true);
+      });
+    });
   }
 
   _initOptions(groupId, onChange, activeValue) {
@@ -1103,6 +1165,12 @@ export class Game {
     `;
     document.body.appendChild(overlay);
 
+    const handleKey = (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        dismiss();
+      }
+    };
+
     const dismiss = () => {
       const el = document.getElementById('onboarding-overlay');
       if (el) {
@@ -1110,12 +1178,10 @@ export class Game {
         el.style.opacity = '0';
         setTimeout(() => el.remove(), 300);
       }
+      document.removeEventListener('keydown', handleKey, true);
     };
 
     overlay.querySelector('#onboarding-start').addEventListener('click', dismiss);
-    overlay.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === 'Escape') dismiss();
-    });
-    document.addEventListener('keydown', dismiss, { once: true });
+    document.addEventListener('keydown', handleKey, true);
   }
 }
