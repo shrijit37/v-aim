@@ -1197,6 +1197,8 @@ export class Game {
     overlay.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === 'Escape') dismiss();
     });
-    document.addEventListener('keydown', dismiss, { once: true });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') dismiss();
+    }, { once: true });
   }
 }
