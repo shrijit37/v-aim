@@ -90,6 +90,7 @@ export class Game {
     document.getElementById('hud').classList.remove('visible');
     document.getElementById('pause-overlay').classList.remove('active');
     this.state = 'menu'; this._updateCursor();
+    this._exitPointerLock();
     if (this.mode) { this.mode.end(); this.mode = null; }
     this.effects.clear();
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
@@ -118,6 +119,12 @@ export class Game {
 
   _startCountdown() {
     this.state = 'countdown'; this._updateCursor();
+    this._requestPointerLock();
+    const s = this.stats.getSettings();
+    if (s.rawInput) {
+      this.mouseX = this.width / 2;
+      this.mouseY = this.height / 2;
+    }
     document.querySelectorAll('.menu-screen').forEach(el => el.classList.remove('active'));
     const overlay = document.getElementById('countdown-overlay');
     const display = document.getElementById('countdownDisplay');
@@ -341,6 +348,7 @@ export class Game {
 
   _endRound() {
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+    this._exitPointerLock();
 
     const result = this.mode.end();
     this._lastResult = result;
@@ -439,6 +447,13 @@ export class Game {
   _bindEvents() {
     this.canvas.addEventListener('mousedown', (e) => {
       this._unlockAudio();
+      const s = this.stats.getSettings();
+      if (s.rawInput && document.pointerLockElement !== this.canvas) {
+        if (this.state === 'playing' || this.state === 'countdown') {
+          this.canvas.requestPointerLock();
+          return;
+        }
+      }
       // Right-click: toggle ADS
       if (e.button === 2) {
         e.preventDefault();
@@ -474,9 +489,39 @@ export class Game {
             this.audio.play('miss');
           }
           this.audio.playWeaponFire(this.weapon.currentId);
-          // Visual feedback tied to gun model position
-          this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
+
+          // Trigger viewmodel recoil kick
           this.viewmodel.onFire();
+
+          // Custom muzzle flash
+          this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY, this.weapon.currentId);
+
+          // Muzzle smoke
+          this.effects.addMuzzleSmoke(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
+
+          // Bullet impact decals (holes)
+          this.effects.addBulletHole(aimX, aimY);
+
+          // Bullet tracers connecting muzzle to impact
+          const tracerColor = (this.weapon.currentId === 'phantom' || this.weapon.currentId === 'spectre' || this.weapon.currentId === 'ghost')
+            ? 'rgba(0, 240, 255, 0.75)'
+            : this.weapon.currentId === 'operator'
+            ? 'rgba(255, 200, 50, 0.9)'
+            : 'rgba(255, 180, 50, 0.8)';
+
+          if (this.weapon.weapon.pellets) {
+            for (let i = 0; i < this.weapon.weapon.pellets; i++) {
+              const spreadMult = this.weapon.weapon.spread.standing * 0.8;
+              const angle = Math.random() * Math.PI * 2;
+              const dist = Math.random() * spreadMult;
+              const pAimX = aimX + Math.cos(angle) * dist * 6;
+              const pAimY = aimY + Math.sin(angle) * dist * 6;
+              this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, pAimX, pAimY, tracerColor, true);
+            }
+          } else {
+            this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, aimX, aimY, tracerColor, false);
+          }
+
           // Auto-reload when empty
           if (this.weapon.ammo === 0 && !this.weapon.reloading) {
             const started = this.weapon.reload();
@@ -488,10 +533,34 @@ export class Game {
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     document.addEventListener('mousemove', (e) => {
-      const pos = this._getPos(e);
-      this.mouseX = pos.x;
-      this.mouseY = pos.y;
-      if (this.mode) this.mode.onMouseMove(pos.x, pos.y);
+      const s = this.stats.getSettings();
+      if (s.rawInput && document.pointerLockElement === this.canvas) {
+        const sensMultiplier = this.weapon.ads ? (s.scopedSensitivity !== undefined ? s.scopedSensitivity : 1.0) : 1.0;
+        const sensitivity = (s.sensitivity || 1.0) * sensMultiplier;
+        const pixelsPerCount = sensitivity * 0.07 * (this.width / 103);
+
+        this.mouseX = Math.max(0, Math.min(this.width, this.mouseX + e.movementX * pixelsPerCount));
+        this.mouseY = Math.max(0, Math.min(this.height, this.mouseY + e.movementY * pixelsPerCount));
+        if (this.mode) this.mode.onMouseMove(this.mouseX, this.mouseY);
+      } else {
+        const pos = this._getPos(e);
+        this.mouseX = pos.x;
+        this.mouseY = pos.y;
+        if (this.mode) this.mode.onMouseMove(pos.x, pos.y);
+      }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      const s = this.stats.getSettings();
+      if (s.rawInput && document.pointerLockElement !== this.canvas) {
+        if (this.state === 'playing') {
+          this._pause();
+        }
+      }
+    });
+
+    document.addEventListener('pointerlockerror', (err) => {
+      console.warn('Pointer lock error:', err);
     });
 
     this.canvas.addEventListener('touchstart', (e) => {
@@ -523,8 +592,39 @@ export class Game {
             this.audio.play('miss');
           }
           this.audio.playWeaponFire(this.weapon.currentId);
+          
+          // Trigger viewmodel recoil kick
           this.viewmodel.onFire();
-          this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
+
+          // Custom muzzle flash
+          this.effects.addMuzzleFlash(this.viewmodel.muzzleX, this.viewmodel.muzzleY, this.weapon.currentId);
+
+          // Muzzle smoke
+          this.effects.addMuzzleSmoke(this.viewmodel.muzzleX, this.viewmodel.muzzleY);
+
+          // Bullet impact decals (holes)
+          this.effects.addBulletHole(aimX, aimY);
+
+          // Bullet tracers connecting muzzle to impact
+          const tracerColor = (this.weapon.currentId === 'phantom' || this.weapon.currentId === 'spectre' || this.weapon.currentId === 'ghost')
+            ? 'rgba(0, 240, 255, 0.75)'
+            : this.weapon.currentId === 'operator'
+            ? 'rgba(255, 200, 50, 0.9)'
+            : 'rgba(255, 180, 50, 0.8)';
+
+          if (this.weapon.weapon.pellets) {
+            for (let i = 0; i < this.weapon.weapon.pellets; i++) {
+              const spreadMult = this.weapon.weapon.spread.standing * 0.8;
+              const angle = Math.random() * Math.PI * 2;
+              const dist = Math.random() * spreadMult;
+              const pAimX = aimX + Math.cos(angle) * dist * 6;
+              const pAimY = aimY + Math.sin(angle) * dist * 6;
+              this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, pAimX, pAimY, tracerColor, true);
+            }
+          } else {
+            this.effects.addTracer(this.viewmodel.muzzleX, this.viewmodel.muzzleY, aimX, aimY, tracerColor, false);
+          }
+
           if (this.weapon.ammo === 0 && !this.weapon.reloading) {
             const started = this.weapon.reload();
             if (started) this.viewmodel.onReload();
@@ -689,6 +789,7 @@ export class Game {
   _pause() {
     if (this.state !== 'playing') return;
     this.state = 'paused'; this._updateCursor();
+    this._exitPointerLock();
     this.audio.play('menuClick');
     document.getElementById('pause-overlay').classList.add('active');
   }
@@ -696,6 +797,12 @@ export class Game {
   _resume() {
     if (this.state !== 'paused') return;
     this.state = 'playing'; this._updateCursor();
+    this._requestPointerLock();
+    const s = this.stats.getSettings();
+    if (s.rawInput) {
+      this.mouseX = this.width / 2;
+      this.mouseY = this.height / 2;
+    }
     this._lastTime = performance.now();
     document.getElementById('pause-overlay').classList.remove('active');
   }
@@ -719,12 +826,72 @@ export class Game {
     }
 
     const sensSlider = document.getElementById('sensitivity');
-    sensSlider.value = s.sensitivity;
-    document.getElementById('sensValue').textContent = s.sensitivity.toFixed(2);
-    sensSlider.addEventListener('input', () => {
-      const val = parseFloat(sensSlider.value);
-      document.getElementById('sensValue').textContent = val.toFixed(2);
+    const sensNum = document.getElementById('sensitivity-num');
+    const scopedSlider = document.getElementById('scoped-sensitivity');
+    const scopedNum = document.getElementById('scoped-sens-num');
+    const rawInputToggle = document.getElementById('rawInputToggle');
+
+    sensSlider.value = Math.min(5.0, s.sensitivity);
+    sensNum.value = s.sensitivity.toFixed(3);
+
+    const updateSens = (val) => {
+      val = Math.max(0.01, Math.min(10.0, parseFloat(val) || 1.0));
       this.stats.updateSetting('sensitivity', val);
+      sensSlider.value = Math.min(5.0, val);
+      sensNum.value = val.toFixed(3);
+    };
+
+    sensSlider.addEventListener('input', () => {
+      updateSens(sensSlider.value);
+    });
+
+    sensNum.addEventListener('change', () => {
+      updateSens(sensNum.value);
+    });
+
+    sensNum.addEventListener('input', () => {
+      const val = parseFloat(sensNum.value);
+      if (!isNaN(val) && val >= 0.01 && val <= 10.0) {
+        this.stats.updateSetting('sensitivity', val);
+        sensSlider.value = Math.min(5.0, val);
+      }
+    });
+
+    const scopedSensVal = s.scopedSensitivity !== undefined ? s.scopedSensitivity : 1.0;
+    scopedSlider.value = Math.min(5.0, scopedSensVal);
+    scopedNum.value = scopedSensVal.toFixed(3);
+
+    const updateScopedSens = (val) => {
+      val = Math.max(0.01, Math.min(10.0, parseFloat(val) || 1.0));
+      this.stats.updateSetting('scopedSensitivity', val);
+      scopedSlider.value = Math.min(5.0, val);
+      scopedNum.value = val.toFixed(3);
+    };
+
+    scopedSlider.addEventListener('input', () => {
+      updateScopedSens(scopedSlider.value);
+    });
+
+    scopedNum.addEventListener('change', () => {
+      updateScopedSens(scopedNum.value);
+    });
+
+    scopedNum.addEventListener('input', () => {
+      const val = parseFloat(scopedNum.value);
+      if (!isNaN(val) && val >= 0.01 && val <= 10.0) {
+        this.stats.updateSetting('scopedSensitivity', val);
+        scopedSlider.value = Math.min(5.0, val);
+      }
+    });
+
+    const isRaw = s.rawInput !== undefined ? s.rawInput : true;
+    rawInputToggle.classList.toggle('active', isRaw);
+    rawInputToggle.addEventListener('click', () => {
+      const val = rawInputToggle.classList.toggle('active');
+      this.stats.updateSetting('rawInput', val);
+      if (!val) {
+        this._exitPointerLock();
+      }
     });
 
     this._initOptions('targetSize', (val) => {
@@ -945,13 +1112,23 @@ export class Game {
       const el = document.getElementById(id);
       if (el) el.textContent = String(val).toUpperCase();
     }
-    // Sensitivity slider
+    // Sensitivity slider & number input
     const sensSlider = document.getElementById('sensitivity');
-    if (sensSlider) {
-      sensSlider.value = s.sensitivity;
-      const lbl = document.getElementById('sensValue');
-      if (lbl) lbl.textContent = s.sensitivity.toFixed(2);
-    }
+    const sensNum = document.getElementById('sensitivity-num');
+    if (sensSlider) sensSlider.value = Math.min(5.0, s.sensitivity);
+    if (sensNum) sensNum.value = s.sensitivity.toFixed(3);
+
+    // Scoped sensitivity slider & number input
+    const scopedSlider = document.getElementById('scoped-sensitivity');
+    const scopedNum = document.getElementById('scoped-sens-num');
+    const scopedSensVal = s.scopedSensitivity !== undefined ? s.scopedSensitivity : 1.0;
+    if (scopedSlider) scopedSlider.value = Math.min(5.0, scopedSensVal);
+    if (scopedNum) scopedNum.value = scopedSensVal.toFixed(3);
+
+    // Raw input toggle
+    const rawInputToggle = document.getElementById('rawInputToggle');
+    const isRaw = s.rawInput !== undefined ? s.rawInput : true;
+    if (rawInputToggle) rawInputToggle.classList.toggle('active', isRaw);
     // Sound toggle + runtime audio
     const soundToggle = document.getElementById('soundToggle');
     if (soundToggle) soundToggle.classList.toggle('active', s.soundEnabled);
@@ -1004,6 +1181,19 @@ export class Game {
 
   _updateCursor() {
     document.body.style.cursor = (this.state === 'playing' || this.state === 'paused') ? 'none' : '';
+  }
+
+  _requestPointerLock() {
+    const s = this.stats.getSettings();
+    if (s.rawInput) {
+      this.canvas.requestPointerLock();
+    }
+  }
+
+  _exitPointerLock() {
+    if (document.pointerLockElement === this.canvas) {
+      document.exitPointerLock();
+    }
   }
 
   _populateStats() {

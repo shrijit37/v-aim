@@ -9,6 +9,8 @@ export class StatsManager {
     return {
       settings: {
         sensitivity: 1.0,
+        scopedSensitivity: 1.0,
+        rawInput: true,
         targetSize: 'medium',
         timer: 60,
         theme: 'dark',
